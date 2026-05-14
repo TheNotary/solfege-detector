@@ -60,16 +60,16 @@ async def websocket_endpoint(ws: WebSocket):
         nonlocal inference_in_progress, pending_window
         try:
             t0 = time.perf_counter()
-            logger.debug("Inference started (window: %d samples, %.3fs)",
-                         len(window), len(window) / sr)
+            logger.info("Inference started (window: %d samples, %.3fs)",
+                        len(window), len(window) / sr)
             detections = await asyncio.to_thread(
                 _detector.detect, window, sample_rate=sr, threshold=thresh,
             )
             elapsed_ms = (time.perf_counter() - t0) * 1000
-            logger.debug("Inference completed in %.1fms, %d detection(s)",
-                         elapsed_ms, len(detections))
+            logger.info("Inference completed in %.1fms, %d detection(s)",
+                        elapsed_ms, len(detections))
             for d in detections:
-                logger.debug("  Sending detection: %s (%.4f)", d.syllable, d.confidence)
+                logger.info("  Sending detection: %s (%.4f)", d.syllable, d.confidence)
                 await ws.send_json({
                     "type": "detection",
                     "syllable": d.syllable,
