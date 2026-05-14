@@ -109,37 +109,35 @@ export default function GameView(_props: GameViewProps) {
       {/* HUD */}
       <div className="game-hud">
         <div className="hud-left">
-          <span
-            className={`connection-badge ${isConnected ? "connected" : "disconnected"}`}
-          >
-            {isConnected ? "Connected" : "Disconnected"}
-          </span>
           <button
             className={`game-btn ${isRunning ? "stop" : "start"}`}
             onClick={handleToggle}
           >
             {isRunning ? "Stop" : "Start"}
           </button>
-        </div>
-        <div className="hud-right">
           <span className="score-display">
             {score.hits} / {score.hits + score.total}
           </span>
         </div>
-      </div>
-
-      {/* Bottom controls */}
-      <div className="game-controls">
-        <div className="speed-control">
-          <span>Speed: {speed} BPM</span>
-          <input
-            type="range"
-            min={10}
-            max={120}
-            step={5}
-            value={speed}
-            onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
-          />
+        <div className="hud-center">
+          <div className="speed-control">
+            <span>Speed: {speed} BPM</span>
+            <input
+              type="range"
+              min={10}
+              max={120}
+              step={5}
+              value={speed}
+              onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
+            />
+          </div>
+        </div>
+        <div className="hud-right">
+          <span
+            className={`connection-badge ${isConnected ? "connected" : "disconnected"}`}
+          >
+            {isConnected ? "● Connected" : "● Disconnected"}
+          </span>
         </div>
       </div>
 
