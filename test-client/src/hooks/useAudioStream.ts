@@ -3,6 +3,11 @@ import { useCallback, useRef, useState } from "react";
 const TARGET_SAMPLE_RATE = 44_100;
 const CHUNK_INTERVAL_MS = 250;
 
+interface UseAudioStreamOptions {
+  onChunk: (chunk: ArrayBuffer) => void;
+  onVolume?: (rms: number) => void;
+}
+
 interface UseAudioStreamReturn {
   startRecording: () => Promise<void>;
   stopRecording: () => void;
@@ -22,7 +27,7 @@ function float32ToInt16(float32: Float32Array): ArrayBuffer {
 }
 
 export function useAudioStream(
-  onChunk: (chunk: ArrayBuffer) => void
+  options: UseAudioStreamOptions
 ): UseAudioStreamReturn {
   const [isRecording, setIsRecording] = useState(false);
 
@@ -30,8 +35,10 @@ export function useAudioStream(
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const onChunkRef = useRef(onChunk);
-  onChunkRef.current = onChunk;
+  const onChunkRef = useRef(options.onChunk);
+  onChunkRef.current = options.onChunk;
+  const onVolumeRef = useRef(options.onVolume);
+  onVolumeRef.current = options.onVolume;
 
   // Accumulation buffer for chunking at CHUNK_INTERVAL_MS
   const accumulatorRef = useRef<Float32Array[]>([]);
@@ -88,6 +95,15 @@ export function useAudioStream(
       const input = e.inputBuffer.getChannelData(0);
       // Copy since the buffer is reused
       accumulatorRef.current.push(new Float32Array(input));
+
+      // Compute RMS for volume detection
+      if (onVolumeRef.current) {
+        let sum = 0;
+        for (let i = 0; i < input.length; i++) {
+          sum += input[i] * input[i];
+        }
+        onVolumeRef.current(Math.sqrt(sum / input.length));
+      }
     };
 
     source.connect(processor);

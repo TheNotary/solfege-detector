@@ -1,0 +1,48 @@
+---
+id: 30
+title: Create game engine hook
+type: feature
+status: closed
+priority: 1
+parent: 27
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:02:59.647534289Z
+updated_at: 2026-05-14T06:07:36.105743390Z
+closed_at: 2026-05-14T06:07:36.105742833Z
+---
+
+Create the core game engine hook that manages the note lifecycle, game loop, and hit detection.
+
+## New: test-client/src/hooks/useGameEngine.ts
+
+### State
+- `notes: GameNote[]` — active notes with `{ id, syllable, x, y, state: 'sliding' | 'hit' | 'missed' }`
+- `speed: number` — configurable BPM (notes per minute), default 30 (one note every 2s)
+- `score: { hits: number, total: number }`
+
+### Sequence
+- Ascending scale `[do, re, mi, fa, sol, la, ti]` repeating cyclically
+
+### Game Loop (requestAnimationFrame)
+Each frame:
+1. Move all active notes leftward by `dx` based on speed
+2. Spawn new note when interval elapses (based on BPM)
+3. Notes that pass the left edge are removed (state -> 'missed')
+
+### Hit Detection
+- Expose `checkHit(volume)` — if `isSounding` AND any note's X is within the crosshair zone -> mark note as 'hit', return the syllable
+- Crosshair zone: fixed at ~20% from left edge of game area, with a tolerance window
+
+### Staff Y Positions
+- Map syllables to Y coordinates: do = bottom (85% of game area height), ti = top (15%), evenly spaced for 7 notes
+
+### Exports
+`{ notes, speed, setSpeed, score, checkHit, startGame, stopGame, isRunning }`
+
+---
+COMMENT
+2026-05-14T06:07:36.103043573Z
+author: fluent-kite
+
+Created useGameEngine.ts with requestAnimationFrame game loop, ascending scale sequence, configurable speed (10-120 BPM), hit detection within crosshair zone, and score tracking. TypeScript compiles clean.

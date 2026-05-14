@@ -1,0 +1,59 @@
+---
+id: 27
+title: Solfege Game Mode with Backend Recording
+type: feature
+status: closed
+priority: 1
+parent: 26
+created_at: 2026-05-14T06:02:27.805188761Z
+updated_at: 2026-05-14T06:11:29.423139146Z
+closed_at: 2026-05-14T06:11:29.423138588Z
+---
+
+## Summary
+
+Transform test-client from a detection log into a rhythm-game UI where solfege notes slide right-to-left on an invisible staff, exploding in confetti when the player sings. Add backend recording of audio windows around each note event to build training data for the acoustic model.
+
+## User Message
+
+We need to make test-client more game like. It should have the "player" sing solfege notes at the correct times by showing musical notes slide in from the right side of the screen. When they find themselves in the "crosshairs" that's when the player knows to sing. When the browser detects sound, the note explodes in a burst of confetti. It's ok if the player didn't sing the right note or not, just so long as they're having fun.
+
+The sliding notes will ride an invisible staff into the crosshairs, where do is the bottom note, and ti is the top.
+
+The backend now needs to be able to capture the notes sung by the player, and store them in recorded_notes/ with a timestamp. We'll use this .wav data and the .metadata (which contains the note the player saw to sing) to train the acoustic model.
+
+## Plan
+
+### Phase 1: Frontend — Volume Detection & Game Engine
+- Install canvas-confetti dependency
+- Add onVolume callback to useAudioStream for real-time RMS volume
+- Create useVolumeDetection hook wrapping the callback as reactive state
+- Create useGameEngine hook (requestAnimationFrame game loop, ascending scale sequence, configurable speed, hit detection)
+- Create GameView.tsx + NoteSprite.tsx + GameView.css (DOM-based sliding notes on invisible staff, crosshair, confetti bursts)
+- Wire Home.tsx to render GameView instead of detection log
+- Add sendNoteEvent to useWebSocket for note_event messages
+
+### Phase 2: Backend — Audio Recording
+- Create RecordingBuffer class (rolling ~3s PCM buffer with capture snapshots)
+- Handle note_event messages in server.py (save .wav + .metadata to recorded_notes/)
+- Wire RecordingBuffer per WebSocket client alongside existing AudioBuffer
+- Add recorded_notes/ to .gitignore
+
+### Phase 3: Integration
+- End-to-end wiring: GameView triggers sendNoteEvent at crosshair, backend records, client fires confetti independently
+
+### Key Decisions
+- Ascending scale (do-re-mi-fa-sol-la-ti repeating)
+- Client-side volume detection for confetti (instant, no backend latency)
+- ~3s recording window captured at crosshair moment
+- Configurable speed via UI slider (default ~30 notes/min)
+- DOM-based rendering (CSS transitions, adequate for <=7 concurrent notes)
+- Confetti on any sound (no pitch matching)
+- Detection pipeline continues running alongside game
+
+---
+COMMENT
+2026-05-14T06:11:29.420933992Z
+author: fluent-kite
+
+All 10 sub-issues completed. Game mode with sliding notes, confetti, and backend recording fully implemented and tested.

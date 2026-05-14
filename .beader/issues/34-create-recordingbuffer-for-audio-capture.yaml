@@ -1,0 +1,37 @@
+---
+id: 34
+title: Create RecordingBuffer for audio capture
+type: feature
+status: closed
+priority: 1
+parent: 27
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:04:08.747804490Z
+updated_at: 2026-05-14T06:07:36.110509687Z
+closed_at: 2026-05-14T06:07:36.110509131Z
+---
+
+Create a rolling audio buffer that captures snapshots of recent audio for saving as training data.
+
+## New: lib-py/solfege_detector/recorder.py
+
+### RecordingBuffer class
+- Maintains a rolling buffer of the last ~3 seconds of PCM audio (configurable via constructor param)
+- `append(chunk: bytes)` — accepts the same raw PCM-16 chunks the WebSocket server already receives
+- `capture(syllable: str, hit: bool) -> tuple[bytes, dict]` — snapshots the current buffer contents and returns (wav_bytes, metadata_dict)
+- The capture window uses whatever audio is in the rolling buffer at the moment of the event (~2-3 seconds depending on how much has accumulated)
+
+### Design notes
+- Similar ring-buffer pattern to existing AudioBuffer in audio_buffer.py
+- Converts PCM-16 bytes to float32 internally for WAV writing
+- Uses soundfile (already a dependency) for WAV encoding
+- Metadata dict contains: syllable, timestamp, hit, sample_rate (44100), channels (1), duration_seconds
+- Sample rate constant: 44100 Hz, mono
+
+---
+COMMENT
+2026-05-14T06:07:36.108473626Z
+author: fluent-kite
+
+Created recorder.py with RecordingBuffer class - rolling 3s ring buffer, capture() returns WAV bytes + metadata dict. Uses soundfile for WAV encoding. All existing tests pass.

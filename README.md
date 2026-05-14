@@ -9,7 +9,8 @@ Detects when standard solfege syllables (**do, re, mi, fa, sol, la, ti**) are sp
 ```
 accoustic-model/    CLAP prompt configuration and validation scripts
 lib-py/             Python library: detector engine, FastAPI WebSocket server
-test-client/        React UI: microphone capture and detection display
+test-client/        React UI: rhythm game with solfege note singing
+recorded_notes/     Captured .wav + .metadata training data (gitignored)
 ```
 
 ### How It Works
@@ -18,6 +19,16 @@ test-client/        React UI: microphone capture and detection display
 2. **Server** buffers audio in a 1.5-second sliding window with 0.25-second hop
 3. **CLAP model** (msclap v2023) runs zero-shot classification asynchronously (via `asyncio.to_thread` with frame-skipping) against solfege prompts
 4. **Detection events** (syllable + confidence) are pushed back to the client in real-time
+
+### Game Mode
+
+The test-client presents a rhythm-game interface:
+
+- **Sliding notes** ride an invisible staff from right to left, following an ascending solfege scale (do→re→mi→fa→sol→la→ti)
+- **Crosshair** marks when to sing — notes in the zone light up when the player makes sound
+- **Confetti burst** fires when the microphone detects any sound while a note is in the crosshair (client-side volume detection for instant feedback)
+- **Speed slider** controls note spawn rate (10–120 BPM)
+- **Backend recording** captures ~3 seconds of audio around each note event, saving `.wav` + `.metadata` files to `recorded_notes/` for acoustic model training
 
 ## Quick Start
 

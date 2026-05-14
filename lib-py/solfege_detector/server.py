@@ -3,14 +3,17 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from solfege_detector.audio_buffer import AudioBuffer
 from solfege_detector.detector import SolfegeDetector
+from solfege_detector.recorder import RecordingBuffer
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,11 @@ logger = logging.getLogger(__name__)
 _detector: SolfegeDetector | None = None
 
 DEFAULT_CONFIDENCE_THRESHOLD = 0.5
+
+RECORDED_NOTES_DIR = Path("recorded_notes")
+
+# Regex for sanitising filenames
+_SAFE_FILENAME_RE = re.compile(r"[^a-zA-Z0-9._-]")
 
 
 @asynccontextmanager
@@ -27,6 +35,8 @@ async def lifespan(app: FastAPI):
     logger.info("Loading SolfegeDetector (CLAP model)...")
     _detector = SolfegeDetector(use_cuda=False)
     logger.info("SolfegeDetector ready.")
+    RECORDED_NOTES_DIR.mkdir(parents=True, exist_ok=True)
+    logger.info("Recording directory: %s", RECORDED_NOTES_DIR.resolve())
     yield
     _detector = None
 
@@ -50,6 +60,7 @@ async def health():
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     buffer = AudioBuffer()
+    recording_buffer = RecordingBuffer()
     threshold = DEFAULT_CONFIDENCE_THRESHOLD
     inference_in_progress = False
     pending_window = None
@@ -92,7 +103,9 @@ async def websocket_endpoint(ws: WebSocket):
             if message["type"] == "websocket.receive":
                 # Binary data — PCM audio
                 if "bytes" in message and message["bytes"]:
-                    window = buffer.append(message["bytes"])
+                    raw = message["bytes"]
+                    recording_buffer.append(raw)
+                    window = buffer.append(raw)
                     if window is not None:
                         logger.debug("Buffer yielded window (%d samples)", len(window))
                         if inference_in_progress:
@@ -117,6 +130,30 @@ async def websocket_endpoint(ws: WebSocket):
                                     "type": "config_ack",
                                     "confidence_threshold": threshold,
                                 })
+                        elif data.get("type") == "note_event":
+                            syllable = str(data.get("syllable", "unknown"))
+                            hit = bool(data.get("hit", False))
+                            client_ts = str(data.get("timestamp", ""))
+
+                            wav_bytes, metadata = recording_buffer.capture(syllable, hit)
+
+                            # Sanitise for safe filenames
+                            safe_ts = _SAFE_FILENAME_RE.sub("_", client_ts)
+                            safe_syl = _SAFE_FILENAME_RE.sub("_", syllable)
+                            base = f"{safe_ts}_{safe_syl}"
+
+                            wav_path = RECORDED_NOTES_DIR / f"{base}.wav"
+                            meta_path = RECORDED_NOTES_DIR / f"{base}.metadata"
+
+                            wav_path.write_bytes(wav_bytes)
+                            meta_path.write_text(json.dumps(metadata, indent=2))
+                            logger.info("Saved recording: %s", wav_path)
+
+                            await ws.send_json({
+                                "type": "note_event_ack",
+                                "syllable": syllable,
+                                "saved": True,
+                            })
                     except (json.JSONDecodeError, ValueError, TypeError) as exc:
                         await ws.send_json({
                             "type": "error",
@@ -129,3 +166,4 @@ async def websocket_endpoint(ws: WebSocket):
         logger.exception("WebSocket error")
     finally:
         buffer.reset()
+        recording_buffer.reset()

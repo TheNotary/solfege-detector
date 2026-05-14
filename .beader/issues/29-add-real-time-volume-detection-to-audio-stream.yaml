@@ -1,0 +1,40 @@
+---
+id: 29
+title: Add real-time volume detection to audio stream
+type: feature
+status: closed
+priority: 1
+parent: 27
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:02:44.087871210Z
+updated_at: 2026-05-14T06:07:36.097037592Z
+closed_at: 2026-05-14T06:07:36.097037035Z
+---
+
+Add RMS volume detection to the existing audio pipeline so the game can detect when the player is making sound (for instant confetti feedback).
+
+## Changes
+
+### Modify: test-client/src/hooks/useAudioStream.ts
+- Add optional `onVolume?: (rms: number) => void` parameter to `startRecording()`
+- In the `ScriptProcessorNode` `onaudioprocess` handler, compute RMS of the float32 input buffer and call `onVolume(rms)` each frame
+- This provides real-time volume data without creating a second AudioContext/microphone stream
+
+### New: test-client/src/hooks/useVolumeDetection.ts
+- Create `useVolumeDetection` hook that wraps the `onVolume` callback to provide reactive state
+- Expose: `{ volume: number, isSounding: boolean }` where `isSounding = volume > threshold`
+- Threshold is a constant (~0.02 RMS) — just "is there sound?", not pitch detection
+- This is used by the game engine for hit detection
+
+## Design
+- Taps into the existing AudioContext/ScriptProcessorNode from useAudioStream — avoids creating a second microphone stream
+- RMS computed on every onaudioprocess frame for minimal latency
+- Client-side only — no backend round-trip for confetti triggering
+
+---
+COMMENT
+2026-05-14T06:07:36.094646142Z
+author: fluent-kite
+
+Modified useAudioStream.ts to accept UseAudioStreamOptions with onVolume callback. Created useVolumeDetection.ts hook with RMS-based volume detection (threshold 0.02). TypeScript compiles clean.

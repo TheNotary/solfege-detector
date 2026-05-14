@@ -1,8 +1,13 @@
 """Smoke tests for solfege_detector module imports and AudioBuffer."""
 
+import io
+import json
+
 import numpy as np
+import soundfile as sf
 
 from solfege_detector import AudioBuffer, Detection, SolfegeDetector
+from solfege_detector.recorder import RecordingBuffer
 
 
 class TestImports:
@@ -74,3 +79,55 @@ class TestAudioBuffer:
         result = buf.append(huge_chunk)
         assert result is not None
         assert len(result) == 8000
+
+
+class TestRecordingBuffer:
+    def test_append_and_capture(self):
+        """Append PCM data and capture produces valid WAV + metadata."""
+        rb = RecordingBuffer(buffer_seconds=1.0, sample_rate=8000)
+        # Send 0.5s of audio (4000 samples)
+        chunk = np.zeros(4000, dtype=np.int16).tobytes()
+        rb.append(chunk)
+
+        wav_bytes, metadata = rb.capture("do", True)
+
+        # WAV should be valid
+        audio, sr = sf.read(io.BytesIO(wav_bytes))
+        assert sr == 8000
+        assert len(audio) == 4000
+
+        # Metadata should have correct fields
+        assert metadata["syllable"] == "do"
+        assert metadata["hit"] is True
+        assert metadata["sample_rate"] == 8000
+        assert metadata["channels"] == 1
+        assert metadata["duration_seconds"] == 0.5
+
+    def test_rolling_buffer_overflow(self):
+        """Buffer only keeps the last buffer_seconds of audio."""
+        rb = RecordingBuffer(buffer_seconds=1.0, sample_rate=8000)
+        # Send 1.5s of audio (12000 samples) — should keep only last 8000
+        chunk = np.arange(12000, dtype=np.int16).tobytes()
+        rb.append(chunk)
+
+        wav_bytes, metadata = rb.capture("re", False)
+        audio, sr = sf.read(io.BytesIO(wav_bytes))
+        assert len(audio) == 8000  # max_samples = 1.0 * 8000
+        assert metadata["duration_seconds"] == 1.0
+
+    def test_capture_empty_buffer(self):
+        """Capture on empty buffer returns 0-length WAV."""
+        rb = RecordingBuffer(buffer_seconds=1.0, sample_rate=8000)
+        wav_bytes, metadata = rb.capture("mi", False)
+        audio, sr = sf.read(io.BytesIO(wav_bytes))
+        assert len(audio) == 0
+        assert metadata["duration_seconds"] == 0.0
+
+    def test_reset_clears_buffer(self):
+        """After reset, capture returns empty audio."""
+        rb = RecordingBuffer(buffer_seconds=1.0, sample_rate=8000)
+        rb.append(np.zeros(4000, dtype=np.int16).tobytes())
+        rb.reset()
+        wav_bytes, metadata = rb.capture("fa", False)
+        audio, sr = sf.read(io.BytesIO(wav_bytes))
+        assert len(audio) == 0

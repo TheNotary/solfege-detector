@@ -1,0 +1,33 @@
+---
+id: 32
+title: Wire Home.tsx to render GameView
+type: task
+status: closed
+priority: 2
+parent: 27
+blocked_by:
+- 31
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:03:48.630312409Z
+updated_at: 2026-05-14T06:10:35.721119088Z
+closed_at: 2026-05-14T06:10:35.721118064Z
+---
+
+Replace the current detection log UI in Home.tsx with the new GameView component.
+
+## Modify: test-client/src/views/Home.tsx
+- Replace the current detection log, confidence slider, and status display with <GameView />
+- Keep the WebSocket connection (still used for streaming audio to backend)
+- Remove or collapse the detection log (it was a dev tool, game replaces it)
+- Connection status and start/stop controls move into GameView
+
+## Dependencies
+Blocked by: #31 (game UI components)
+
+---
+COMMENT
+2026-05-14T06:10:35.717285945Z
+author: fluent-kite
+
+Replaced Home.tsx contents with <GameView /> component. All connection, recording, and UI logic now lives in GameView. TypeScript compiles clean.

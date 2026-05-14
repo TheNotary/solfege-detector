@@ -1,0 +1,53 @@
+---
+id: 31
+title: Create game UI components
+type: feature
+status: closed
+priority: 1
+parent: 27
+blocked_by:
+- 28
+- 29
+- 30
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:03:40.732085280Z
+updated_at: 2026-05-14T06:09:42.341145532Z
+closed_at: 2026-05-14T06:09:42.341144883Z
+---
+
+Build the visual game components: the main game view, sliding note sprites, and styling.
+
+## New: test-client/src/views/GameView.tsx
+- Full-viewport game area (DOM-based, not HTML canvas)
+- Renders NoteSprite for each active note from the game engine
+- Renders crosshair overlay (vertical line or reticle at fixed X ~20% from left)
+- Faint horizontal staff lines at each solfege Y position (barely visible, "invisible staff")
+- Note labels on the left edge (Do, Re, Mi, Fa, Sol, La, Ti) to label staff lines
+- Speed slider control (bottom or sidebar)
+- Start/Stop button (reuse existing recording controls pattern)
+- Connection status indicator (reuse existing)
+- Integrates useGameEngine, useVolumeDetection, useWebSocket, and useAudioStream hooks
+
+## New: test-client/src/components/NoteSprite.tsx
+- Renders a musical note symbol at given (x, y) position
+- Position driven by game loop (absolute positioning within game area)
+- On hit state: trigger canvas-confetti burst at note screen position, then fade/remove
+- On missed state: fade out as it exits past the left edge
+
+## New: test-client/src/views/GameView.css
+- Dark background for game feel
+- Glowing crosshair (CSS glow/shadow effect)
+- Note styling with subtle shadow/glow
+- Staff lines as thin, low-opacity horizontal rules
+- Smooth note movement via absolute positioning
+
+## Dependencies
+Blocked by: #28 (canvas-confetti), #29 (volume detection), #30 (game engine)
+
+---
+COMMENT
+2026-05-14T06:09:42.338887419Z
+author: fluent-kite
+
+Created GameView.tsx, GameView.css, and NoteSprite.tsx. GameView renders full-viewport game area with staff lines, crosshair, sliding notes, speed slider, volume meter, score display, and start/stop button. NoteSprite triggers canvas-confetti on hit. All TypeScript compiles clean.

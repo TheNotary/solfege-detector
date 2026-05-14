@@ -1,0 +1,32 @@
+---
+id: 36
+title: Add recorded_notes/ to .gitignore
+type: task
+status: closed
+priority: 3
+parent: 27
+blocked_by:
+- 35
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:04:25.379667300Z
+updated_at: 2026-05-14T06:10:35.729491768Z
+closed_at: 2026-05-14T06:10:35.729490650Z
+---
+
+Create or update .gitignore at the project root to exclude the recorded_notes/ directory from version control.
+
+## Changes
+- Add `recorded_notes/` to .gitignore
+- This directory contains captured .wav and .metadata files generated during game sessions
+- These files are training data artifacts and should not be committed
+
+## Dependencies
+Blocked by: #35 (server recording handler creates the directory)
+
+---
+COMMENT
+2026-05-14T06:10:35.725498999Z
+author: fluent-kite
+
+Created root .gitignore with recorded_notes/ exclusion.

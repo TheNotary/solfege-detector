@@ -1,0 +1,47 @@
+---
+id: 37
+title: End-to-end integration wiring
+type: task
+status: closed
+priority: 1
+parent: 27
+blocked_by:
+- 32
+- 33
+- 35
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:04:42.885875890Z
+updated_at: 2026-05-14T06:11:29.418594855Z
+closed_at: 2026-05-14T06:11:29.418594297Z
+---
+
+Wire the frontend game and backend recording together for the complete game experience.
+
+## Changes
+
+### test-client/src/views/GameView.tsx
+- When a note enters the crosshair zone, call `sendNoteEvent(syllable, hit)` via the WebSocket hook
+- The backend captures and records the audio window upon receiving this event
+- Confetti fires on the client side independently (no wait for backend ACK)
+- Handle optional note_event_ack messages from backend (log or ignore)
+
+## Verification
+1. Start both servers (uv run python -m solfege_detector.main + pnpm dev), open browser
+2. Notes should slide right-to-left on 7 staff lines, crosshair visible at ~20% from left
+3. Sing or clap when a note is in the crosshairs — note explodes in confetti
+4. After a session, check recorded_notes/ for .wav + .metadata file pairs
+5. .wav files should be ~2-3 seconds, .metadata should have correct syllable
+6. Speed slider adjusts note spawn rate
+7. Scale cycles do->re->mi->fa->sol->la->ti->do ascending
+8. Existing tests still pass: cd lib-py && uv run pytest solfege_detector/tests/test_app.py -v
+
+## Dependencies
+Blocked by: #32 (Home.tsx wiring), #33 (sendNoteEvent), #35 (server recording)
+
+---
+COMMENT
+2026-05-14T06:11:29.415867833Z
+author: fluent-kite
+
+Integration already wired in GameView.tsx: checkHit triggers sendNoteEvent on hit, effect sends sendNoteEvent on missed notes. Backend handles note_event and saves .wav/.metadata. Added 4 RecordingBuffer tests (all pass). Full build clean: TS compiles, 12/12 Python tests pass.

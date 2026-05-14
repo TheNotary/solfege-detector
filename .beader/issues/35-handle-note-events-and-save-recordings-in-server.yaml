@@ -1,0 +1,48 @@
+---
+id: 35
+title: Handle note events and save recordings in server
+type: feature
+status: closed
+priority: 1
+parent: 27
+blocked_by:
+- 34
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:04:19.484614418Z
+updated_at: 2026-05-14T06:09:42.336183732Z
+closed_at: 2026-05-14T06:09:42.336183083Z
+---
+
+Wire RecordingBuffer into the WebSocket server and handle note_event messages to save .wav + .metadata files for acoustic model training.
+
+## Modify: lib-py/solfege_detector/server.py
+
+### Startup changes
+- Create `recorded_notes/` directory at startup (relative to working directory) if it does not exist
+
+### Per-client state additions
+- Add `recording_buffer = RecordingBuffer()` per WebSocket client (alongside existing AudioBuffer)
+
+### Binary frame handler changes
+- In addition to calling `buffer.append(data)`, also call `recording_buffer.append(data)` for every PCM chunk received
+
+### Text frame handler additions
+- Add case for `type: "note_event"` messages
+- On receiving `{ type: "note_event", syllable, hit, timestamp }`:
+  1. Call `recording_buffer.capture(syllable, hit)`
+  2. Sanitize timestamp/syllable for filesystem safety (strip special chars, replace colons)
+  3. Write .wav file: `recorded_notes/{timestamp}_{syllable}.wav` (44100 Hz, mono, 16-bit PCM)
+  4. Write .metadata file: `recorded_notes/{timestamp}_{syllable}.metadata` as JSON containing: syllable, timestamp, hit, sample_rate, channels, duration_seconds
+  5. Send ACK: `{ type: "note_event_ack", syllable: "do", saved: true }`
+- Use soundfile (already a dependency) for WAV writing
+
+## Dependencies
+Blocked by: #34 (RecordingBuffer class)
+
+---
+COMMENT
+2026-05-14T06:09:42.333741100Z
+author: fluent-kite
+
+Wired RecordingBuffer into server.py: recording_buffer per client, feeds every binary chunk, handles note_event messages to save .wav + .metadata to recorded_notes/, sends ACK. Creates recorded_notes/ dir at startup. Filename sanitization applied.

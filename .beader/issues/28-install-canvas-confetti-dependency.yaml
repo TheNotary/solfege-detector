@@ -1,0 +1,28 @@
+---
+id: 28
+title: Install canvas-confetti dependency
+type: task
+status: closed
+priority: 2
+parent: 27
+assignees:
+- fluent-kite
+created_at: 2026-05-14T06:02:33.468543646Z
+updated_at: 2026-05-14T06:05:34.924364493Z
+closed_at: 2026-05-14T06:05:34.921239704Z
+---
+
+Install canvas-confetti and its TypeScript types in test-client.
+
+```bash
+cd test-client && pnpm add canvas-confetti && pnpm add -D @types/canvas-confetti
+```
+
+This provides the confetti burst effect when notes are hit in the game.
+
+---
+COMMENT
+2026-05-14T06:05:34.924363374Z
+author: fluent-kite
+
+Installed canvas-confetti@1.9.4 and @types/canvas-confetti@1.9.0 in test-client.

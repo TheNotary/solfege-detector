@@ -9,6 +9,7 @@ export interface DetectionMessage {
 interface UseWebSocketReturn {
   send: (data: Blob | ArrayBuffer) => void;
   sendConfig: (config: { confidence_threshold: number }) => void;
+  sendNoteEvent: (syllable: string, hit: boolean) => void;
   lastMessage: DetectionMessage | null;
   isConnected: boolean;
   connect: () => void;
@@ -109,6 +110,22 @@ export function useWebSocket(url: string): UseWebSocketReturn {
     []
   );
 
+  const sendNoteEvent = useCallback(
+    (syllable: string, hit: boolean) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: "note_event",
+            syllable,
+            hit,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      }
+    },
+    []
+  );
+
   // Connect on mount, disconnect on unmount
   useEffect(() => {
     connectWs();
@@ -120,6 +137,7 @@ export function useWebSocket(url: string): UseWebSocketReturn {
   return {
     send,
     sendConfig,
+    sendNoteEvent,
     lastMessage,
     isConnected,
     connect: connectWs,

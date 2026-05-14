@@ -1,0 +1,201 @@
+.game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #0a0a1a;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Faint staff lines */
+.staff-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+/* Solfege labels on the left edge */
+.staff-label {
+  position: absolute;
+  left: 12px;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: capitalize;
+  pointer-events: none;
+  font-family: monospace;
+}
+
+/* Crosshair */
+.crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(0, 200, 255, 0.5);
+  box-shadow: 0 0 12px 2px rgba(0, 200, 255, 0.3),
+    0 0 40px 4px rgba(0, 200, 255, 0.1);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.crosshair-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 200, 255, 0.04);
+  border-left: 1px solid rgba(0, 200, 255, 0.1);
+  border-right: 1px solid rgba(0, 200, 255, 0.1);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Note sprites */
+.note-sprite {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4),
+    0 0 20px rgba(100, 180, 255, 0.2);
+  pointer-events: none;
+  z-index: 10;
+  transition: opacity 0.15s ease-out;
+}
+
+.note-sprite.note-hit {
+  color: #ffd700;
+  text-shadow: 0 0 16px rgba(255, 215, 0, 0.8),
+    0 0 40px rgba(255, 215, 0, 0.4);
+  opacity: 0;
+}
+
+.note-sprite.note-missed {
+  opacity: 0.2;
+}
+
+/* HUD overlay */
+.game-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.game-hud > * {
+  pointer-events: auto;
+}
+
+.hud-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.score-display {
+  font-family: monospace;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.connection-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.connection-badge.connected {
+  background-color: #22c55e;
+}
+
+.connection-badge.disconnected {
+  background-color: #ef4444;
+}
+
+.game-btn {
+  padding: 8px 24px;
+  font-size: 0.9rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  color: #fff;
+}
+
+.game-btn.start {
+  background-color: #3b82f6;
+}
+
+.game-btn.stop {
+  background-color: #ef4444;
+}
+
+/* Bottom controls */
+.game-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  z-index: 20;
+  gap: 16px;
+}
+
+.speed-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+.speed-control input[type="range"] {
+  width: 160px;
+  accent-color: #3b82f6;
+}
+
+/* Volume meter */
+.volume-meter {
+  position: absolute;
+  bottom: 60px;
+  right: 20px;
+  width: 6px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.volume-meter-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #22c55e;
+  border-radius: 3px;
+  transition: height 0.05s ease-out;
+}
