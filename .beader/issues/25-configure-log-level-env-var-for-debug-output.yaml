@@ -1,0 +1,37 @@
+---
+id: 25
+title: Configure LOG_LEVEL env var for debug output
+type: task
+status: closed
+priority: 2
+parent: 18
+blocked_by:
+- 22
+- 23
+- 24
+assignees:
+- bright-vortex
+created_at: 2026-05-14T05:27:06.428174547Z
+updated_at: 2026-05-14T05:30:14.172319063Z
+closed_at: 2026-05-14T05:30:14.172318504Z
+---
+
+In lib-py/solfege_detector/main.py, add logging configuration that respects a LOG_LEVEL environment variable.
+
+### Implementation
+- Read LOG_LEVEL from os.environ (default to 'INFO')
+- Configure logging.basicConfig() with that level, a format string that includes timestamp, logger name, and level, e.g.:
+  logging.basicConfig(level=getattr(logging, os.environ.get('LOG_LEVEL', 'INFO').upper(), logging.INFO), format='%(asctime)s %(name)s %(levelname)s %(message)s')
+- This enables all the debug logging added in issues #22, #23, #24 when the server is started with LOG_LEVEL=DEBUG
+
+### Acceptance Criteria
+- Starting the server with LOG_LEVEL=DEBUG shows debug-level log messages from all solfege_detector modules
+- Default behavior (no env var) shows only INFO and above
+- Log format includes timestamp and module name for easy debugging
+
+---
+COMMENT
+2026-05-14T05:30:14.169353204Z
+author: bright-vortex
+
+Updated main.py to read LOG_LEVEL env var as default for --log-level flag. Added format string with timestamp and module name: %(asctime)s %(name)s %(levelname)s %(message)s. Starting with LOG_LEVEL=DEBUG now shows all debug output from detector, server, and audio_buffer.

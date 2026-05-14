@@ -1,8 +1,10 @@
 """Core solfege syllable detection engine using CLAP zero-shot classification."""
 
+import logging
 import os
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from typing import List
 
@@ -23,6 +25,8 @@ from prompt_config import (
     NUM_SOLFEGE_CLASSES,
     SOLFEGE_SYLLABLES,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -71,12 +75,20 @@ class SolfegeDetector:
         List of ``Detection`` objects for syllables exceeding *threshold*
         whose probability also beats every negative class.
         """
+        duration = len(audio) / sample_rate
+        logger.debug("detect() called: %d samples, %d Hz, %.3fs",
+                     len(audio), sample_rate, duration)
+
         # Write audio to a temp WAV file (CLAP requires file paths)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             tmp_path = f.name
         try:
             sf.write(tmp_path, audio, sample_rate)
+            t0 = time.perf_counter()
+            logger.debug("CLAP audio embedding started")
             audio_embeddings = self._clap.get_audio_embeddings([tmp_path], resample=True)
+            embed_ms = (time.perf_counter() - t0) * 1000
+            logger.debug("CLAP audio embedding completed in %.1fms", embed_ms)
         finally:
             os.unlink(tmp_path)
 
@@ -89,6 +101,11 @@ class SolfegeDetector:
         negative_probs = probs[NUM_SOLFEGE_CLASSES:]
         max_negative = float(negative_probs.max())
 
+        # Log all class probabilities
+        prob_parts = [f"{s}={float(p):.4f}" for s, p in zip(SOLFEGE_SYLLABLES, solfege_probs)]
+        neg_parts = [f"{name}={float(p):.4f}" for name, p in zip(NEGATIVE_PROMPTS, negative_probs)]
+        logger.debug("Probabilities: %s | %s", " ".join(prob_parts), " ".join(neg_parts))
+
         detections: List[Detection] = []
         for i, (syllable, prob) in enumerate(zip(SOLFEGE_SYLLABLES, solfege_probs)):
             p = float(prob)
@@ -97,4 +114,6 @@ class SolfegeDetector:
 
         # Sort by confidence descending
         detections.sort(key=lambda d: d.confidence, reverse=True)
+        det_summary = ", ".join(f"{d.syllable}({d.confidence:.4f})" for d in detections) or "none"
+        logger.debug("Returning %d detection(s): %s", len(detections), det_summary)
         return detections

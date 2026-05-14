@@ -1,0 +1,35 @@
+---
+id: 19
+title: Reduce AudioBuffer window from 7s to 1.5s and hop from 1s to 250ms
+type: task
+status: closed
+priority: 1
+parent: 18
+assignees:
+- bright-vortex
+created_at: 2026-05-14T05:25:53.763594463Z
+updated_at: 2026-05-14T05:28:10.521626695Z
+closed_at: 2026-05-14T05:28:10.521626048Z
+---
+
+In lib-py/solfege_detector/audio_buffer.py, change the default parameters:
+- window_size_seconds: 7.0 -> 1.5 (line ~18)
+- hop_size_seconds: 1.0 -> 0.25 (line ~19)
+
+The buffer math (window_samples, hop_samples) is already computed from these parameters, so only the defaults need to change.
+
+### Rationale
+- 1.5s window: enough audio context for CLAP to classify a solfege syllable while reducing time-to-first-detection from 7s to ~1.5s
+- 250ms hop: model invoked ~4 times/second at steady state, matching user requirement
+
+### Acceptance Criteria
+- AudioBuffer yields its first window after ~1.5s of audio (not 7s)
+- Subsequent windows are yielded every ~250ms of new audio
+- Existing tests still pass
+
+---
+COMMENT
+2026-05-14T05:28:10.517724203Z
+author: bright-vortex
+
+Changed defaults in audio_buffer.py: window_size_seconds 7.0 -> 1.5, hop_size_seconds 1.0 -> 0.25. All 8 existing tests pass.

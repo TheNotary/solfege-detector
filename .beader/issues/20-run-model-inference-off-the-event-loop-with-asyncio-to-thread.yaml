@@ -1,0 +1,40 @@
+---
+id: 20
+title: Run model inference off the event loop with asyncio.to_thread
+type: task
+status: closed
+priority: 1
+parent: 18
+blocked_by:
+- 19
+assignees:
+- bright-vortex
+created_at: 2026-05-14T05:26:19.193432369Z
+updated_at: 2026-05-14T05:28:57.868447021Z
+closed_at: 2026-05-14T05:28:57.868446278Z
+---
+
+In lib-py/solfege_detector/server.py, wrap the _detector.detect() call (line ~63) in asyncio.to_thread() so that CLAP model inference runs in a background thread and does not block the async WebSocket receive loop.
+
+### Current Problem
+The detect() call is synchronous and runs directly in the async handler. While inference is running (potentially hundreds of ms on CPU), the WebSocket cannot receive new audio chunks -- they queue up in the socket buffer.
+
+### Implementation
+Change:
+  detections = _detector.detect(window, ...)
+To:
+  detections = await asyncio.to_thread(_detector.detect, window, ...)
+
+Import asyncio at the top of the file.
+
+### Acceptance Criteria
+- Model inference runs in a thread, not blocking the event loop
+- WebSocket continues receiving audio during inference
+- Detection results are still sent correctly to the client
+
+---
+COMMENT
+2026-05-14T05:28:57.865417809Z
+author: bright-vortex
+
+Wrapped _detector.detect() in asyncio.to_thread(). Added _run_inference() async helper that runs inference off the event loop. WebSocket receive loop now continues buffering audio during inference.

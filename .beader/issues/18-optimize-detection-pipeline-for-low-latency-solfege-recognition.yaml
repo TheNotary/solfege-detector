@@ -1,0 +1,46 @@
+---
+id: 18
+title: Optimize detection pipeline for low-latency solfege recognition
+type: feature
+status: closed
+priority: 1
+parent: 1
+created_at: 2026-05-14T05:25:42.112628110Z
+updated_at: 2026-05-14T05:30:19.840392355Z
+closed_at: 2026-05-14T05:30:19.840391063Z
+---
+
+## Summary
+
+The backend takes ~7 seconds before its first detection because AudioBuffer requires a full 7-second window before yielding. Model inference also runs synchronously in the WebSocket handler, blocking all audio processing. We need to reduce the analysis window, increase detection frequency, run inference off the event loop, and add debug logging.
+
+## User Message
+
+We've just gotten this project working, but after performing an utterance, it takes a long time for the backend to disclose its classification. Are we using an efficient algorithm to window the audio into chunks of 250ms or so, so that for every 1 second, we're only engaging the model 4 times (or ideally 4 * 2 to allow some overlapping of chunks). If we don't do something smart like that, we need to. Also be sure to add debug log messages to the backend so we can see every time the model is invoked.
+
+## Plan
+
+### Phase 1: Reduce Window and Hop (audio_buffer.py)
+- Change window_size_seconds from 7.0 to 1.5 -- enough context for CLAP while cutting time-to-first-detection from 7s to ~1.5s
+- Change hop_size_seconds from 1.0 to 0.25 -- model invoked ~4 times/second at steady state
+- Defaults change only; the buffer math is already parameterized
+
+### Phase 2: Async Inference with Frame-Skipping (server.py)
+- Wrap _detector.detect() in asyncio.to_thread() so inference doesnt block the WebSocket receive loop
+- Add inference-running flag with frame-skipping: while inference is in progress, keep buffering but dont start new inference; stash latest window and process it when current inference completes
+- Send status messages after inference completes so client knows processing is active
+
+### Phase 3: Debug Logging (detector.py, server.py, audio_buffer.py)
+- In detect(): log at entry (audio length, sample rate), before/after CLAP embedding (with perf_counter timing), and at exit (detection count + confidences)
+- In server.py: log window yields, inference start/complete, skipped windows, and detections sent
+- In audio_buffer.py: log when a window is yielded (fill level, new_samples count, window duration)
+
+### Phase 4: Logging Configuration (main.py)
+- Wire up LOG_LEVEL env var (default INFO) so LOG_LEVEL=DEBUG enables debug output
+
+---
+COMMENT
+2026-05-14T05:30:19.835568323Z
+author: bright-vortex
+
+All sub-issues complete. Changes: (1) AudioBuffer window 7s->1.5s, hop 1s->250ms (#19), (2) async inference via asyncio.to_thread (#20), (3) frame-skipping with pending window stash (#21), (4) debug logging in detector/server/audio_buffer (#22/#23/#24), (5) LOG_LEVEL env var support (#25). All 8 tests pass.

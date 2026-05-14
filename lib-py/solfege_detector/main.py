@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 
 import uvicorn
 
@@ -16,10 +17,17 @@ def main():
         default=0.5,
         help="Default confidence threshold for detection (default: 0.5)",
     )
-    parser.add_argument("--log-level", default="info", help="Log level (default: info)")
+    parser.add_argument(
+        "--log-level",
+        default=os.environ.get("LOG_LEVEL", "info"),
+        help="Log level (default: info, or LOG_LEVEL env var)",
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper(), logging.INFO),
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
 
     uvicorn.run(
         "solfege_detector.server:app",

@@ -1,0 +1,36 @@
+---
+id: 24
+title: Add debug logging to audio_buffer.py for window yields
+type: task
+status: closed
+priority: 2
+parent: 18
+assignees:
+- bright-vortex
+created_at: 2026-05-14T05:26:59.404288468Z
+updated_at: 2026-05-14T05:30:08.761588383Z
+closed_at: 2026-05-14T05:30:08.761587825Z
+---
+
+In lib-py/solfege_detector/audio_buffer.py, add debug logging when the buffer yields a window.
+
+### Implementation
+Add import logging at the top. Create logger = logging.getLogger(__name__).
+
+In the append() method, add a logger.debug() call right before returning the window copy (line ~65):
+- Log fill level (self._fill), new_samples accumulated since last yield, and window duration in seconds (self.window_samples / self.sample_rate)
+
+### Example Output
+  DEBUG solfege_detector.audio_buffer: Window yielded: fill=66150, new_samples=11025, duration=1.500s
+
+### Acceptance Criteria
+- Every window yield produces a debug log message
+- Log includes fill level and computed window duration
+- Logs only appear at DEBUG level
+
+---
+COMMENT
+2026-05-14T05:30:08.758631753Z
+author: bright-vortex
+
+Added logger = logging.getLogger(__name__) and logger.debug() call at window yield point, logging fill level, new_samples count, and window duration in seconds.

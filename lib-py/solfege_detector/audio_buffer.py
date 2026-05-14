@@ -1,8 +1,11 @@
 """Sliding window ring buffer for streaming PCM audio."""
 
+import logging
 from typing import Optional
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 class AudioBuffer:
@@ -15,8 +18,8 @@ class AudioBuffer:
 
     def __init__(
         self,
-        window_size_seconds: float = 7.0,
-        hop_size_seconds: float = 1.0,
+        window_size_seconds: float = 1.5,
+        hop_size_seconds: float = 0.25,
         sample_rate: int = 44_100,
     ) -> None:
         self.sample_rate = sample_rate
@@ -66,6 +69,9 @@ class AudioBuffer:
 
         # Only yield when we have a full window AND enough new audio since last yield
         if self._fill >= self.window_samples and self._new_samples >= self.hop_samples:
+            logger.debug("Window yielded: fill=%d, new_samples=%d, duration=%.3fs",
+                         self._fill, self._new_samples,
+                         self.window_samples / self.sample_rate)
             self._new_samples = 0
             return self._buffer.copy()
 

@@ -1,0 +1,45 @@
+---
+id: 22
+title: Add debug logging to detector.py for model invocations
+type: task
+status: closed
+priority: 2
+parent: 18
+assignees:
+- bright-vortex
+created_at: 2026-05-14T05:26:43.355422950Z
+updated_at: 2026-05-14T05:30:08.749035935Z
+closed_at: 2026-05-14T05:30:08.749035470Z
+---
+
+In lib-py/solfege_detector/detector.py, add debug logging around every model invocation so we can observe inference timing and results.
+
+### Implementation
+Add import logging and import time at the top. Create logger = logging.getLogger(__name__).
+
+In the detect() method, add logger.debug() calls at:
+1. Entry: log audio array length (samples), sample rate, and computed duration
+2. Before get_audio_embeddings(): log 'Starting CLAP audio embedding...' with time.perf_counter() start
+3. After get_audio_embeddings(): log 'Audio embedding complete' with elapsed time in ms
+4. After compute_similarity() and softmax: log all class probabilities (solfege + negative)
+5. At exit: log number of detections returned and their syllable/confidence pairs
+
+### Example Output
+  DEBUG solfege_detector.detector: detect() called: 66150 samples, 44100 Hz, 1.500s
+  DEBUG solfege_detector.detector: CLAP audio embedding started
+  DEBUG solfege_detector.detector: CLAP audio embedding completed in 342.1ms
+  DEBUG solfege_detector.detector: Probabilities: do=0.72 re=0.03 ... noise=0.01 silence=0.02
+  DEBUG solfege_detector.detector: Returning 1 detection(s): do(0.7234)
+
+### Acceptance Criteria
+- Every call to detect() produces debug log output
+- Inference timing (in milliseconds) is logged for the CLAP embedding step
+- All class probabilities are visible in the log
+- Logs only appear at DEBUG level (not visible at default INFO)
+
+---
+COMMENT
+2026-05-14T05:30:08.746135761Z
+author: bright-vortex
+
+Added logger.debug() calls in detect(): entry (samples, Hz, duration), CLAP embedding start/complete with perf_counter timing (ms), all class probabilities, and exit summary with detection count and confidence values.

@@ -1,0 +1,37 @@
+---
+id: 23
+title: Add debug logging to server.py for inference lifecycle
+type: task
+status: closed
+priority: 2
+parent: 18
+blocked_by:
+- 21
+assignees:
+- bright-vortex
+created_at: 2026-05-14T05:26:50.367890001Z
+updated_at: 2026-05-14T05:30:08.756398353Z
+closed_at: 2026-05-14T05:30:08.756397702Z
+---
+
+In lib-py/solfege_detector/server.py, add debug logging throughout the WebSocket handler to trace the inference lifecycle.
+
+### Log Points
+1. When buffer.append() yields a window: log window shape and buffer state
+2. When inference starts: log 'Starting inference on window...'
+3. When inference completes: log elapsed time and number of detections
+4. When a window is skipped due to ongoing inference: log 'Window skipped (inference in progress), stashing as pending'
+5. When a pending window is picked up after inference completes: log 'Processing pending window...'
+6. When detections are sent to the client: log syllable and confidence for each detection
+
+### Acceptance Criteria
+- Full inference lifecycle is traceable in DEBUG logs
+- Skipped windows are explicitly logged
+- Logs only appear at DEBUG level
+
+---
+COMMENT
+2026-05-14T05:30:08.753692100Z
+author: bright-vortex
+
+Server logging was implemented as part of the async inference + frame-skipping work in #20/#21. Debug logs cover: buffer window yields, inference start/complete with timing, window skipping during ongoing inference, pending window processing, and detection sends.

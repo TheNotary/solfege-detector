@@ -1,0 +1,39 @@
+---
+id: 21
+title: Add frame-skipping to prevent inference backlog
+type: task
+status: closed
+priority: 1
+parent: 18
+blocked_by:
+- 20
+assignees:
+- bright-vortex
+created_at: 2026-05-14T05:26:32.138590257Z
+updated_at: 2026-05-14T05:28:57.883988874Z
+closed_at: 2026-05-14T05:28:57.883988317Z
+---
+
+In lib-py/solfege_detector/server.py, add an inference-running flag and frame-skipping logic to the WebSocket handler.
+
+### Problem
+With a 250ms hop, the buffer may yield a new window every 250ms. If CLAP inference takes longer than 250ms (likely on CPU), windows will queue up and the system will fall further behind real-time. Stale windows are useless -- we always want to classify the most recent audio.
+
+### Implementation
+- Add an _inference_in_progress boolean (or asyncio.Event) per WebSocket connection
+- When buffer.append() yields a window and inference is already running, stash the window as _pending_window (overwriting any previously stashed window)
+- When inference completes, check for a pending window and immediately start a new inference on it
+- This ensures: (a) no unbounded queue growth, (b) we always classify the latest audio, (c) we skip intermediate windows gracefully
+
+### Acceptance Criteria
+- When inference takes longer than 250ms, intermediate windows are skipped (not queued)
+- The most recent window is always processed after the current inference completes
+- Debug logs show when windows are skipped due to ongoing inference
+- No race conditions between the event loop and the inference thread
+
+---
+COMMENT
+2026-05-14T05:28:57.881259897Z
+author: bright-vortex
+
+Implemented frame-skipping: inference_in_progress flag prevents concurrent inference. When buffer yields a window during inference, it is stashed as pending_window (overwriting any prior stash). On inference completion, pending window is immediately processed. Debug logs added for skipped and pending windows.

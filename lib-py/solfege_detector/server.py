@@ -1,7 +1,9 @@
 """FastAPI WebSocket server for real-time solfege syllable detection."""
 
+import asyncio
 import json
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -49,7 +51,39 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     buffer = AudioBuffer()
     threshold = DEFAULT_CONFIDENCE_THRESHOLD
+    inference_in_progress = False
+    pending_window = None
     logger.info("WebSocket client connected")
+
+    async def _run_inference(window, sr, thresh):
+        """Run detection in a thread and send results back on the WebSocket."""
+        nonlocal inference_in_progress, pending_window
+        try:
+            t0 = time.perf_counter()
+            logger.debug("Inference started (window: %d samples, %.3fs)",
+                         len(window), len(window) / sr)
+            detections = await asyncio.to_thread(
+                _detector.detect, window, sample_rate=sr, threshold=thresh,
+            )
+            elapsed_ms = (time.perf_counter() - t0) * 1000
+            logger.debug("Inference completed in %.1fms, %d detection(s)",
+                         elapsed_ms, len(detections))
+            for d in detections:
+                logger.debug("  Sending detection: %s (%.4f)", d.syllable, d.confidence)
+                await ws.send_json({
+                    "type": "detection",
+                    "syllable": d.syllable,
+                    "confidence": round(d.confidence, 4),
+                })
+        finally:
+            inference_in_progress = False
+            # If a newer window arrived while we were busy, process it now
+            if pending_window is not None:
+                next_window = pending_window
+                pending_window = None
+                inference_in_progress = True
+                logger.debug("Processing pending window (stashed during previous inference)")
+                asyncio.ensure_future(_run_inference(next_window, sr, thresh))
 
     try:
         while True:
@@ -60,17 +94,15 @@ async def websocket_endpoint(ws: WebSocket):
                 if "bytes" in message and message["bytes"]:
                     window = buffer.append(message["bytes"])
                     if window is not None:
-                        detections = _detector.detect(
-                            window,
-                            sample_rate=buffer.sample_rate,
-                            threshold=threshold,
-                        )
-                        for d in detections:
-                            await ws.send_json({
-                                "type": "detection",
-                                "syllable": d.syllable,
-                                "confidence": round(d.confidence, 4),
-                            })
+                        logger.debug("Buffer yielded window (%d samples)", len(window))
+                        if inference_in_progress:
+                            logger.debug("Inference in progress — stashing window as pending")
+                            pending_window = window
+                        else:
+                            inference_in_progress = True
+                            asyncio.ensure_future(_run_inference(
+                                window, buffer.sample_rate, threshold,
+                            ))
 
                 # Text data — JSON config
                 elif "text" in message and message["text"]:
