@@ -1,0 +1,43 @@
+---
+id: 48
+title: Create usePitchDetection hook
+type: task
+status: closed
+priority: 1
+parent: 40
+blocked_by:
+- 42
+- 54
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:23:42.601795513Z
+updated_at: 2026-05-14T14:28:42.654437188Z
+closed_at: 2026-05-14T14:28:42.654436687Z
+---
+
+Create test-client/src/hooks/usePitchDetection.ts
+
+Uses pitchy's PitchDetector with an AnalyserNode from the shared AudioContext.
+
+Implementation:
+- Accept AudioContext and source node as parameters
+- Create AnalyserNode with fftSize=4096 (needed for reliable C3 detection: 44100/130 = ~340 samples/period, need ~6 periods = 2040 minimum)
+- Connect source -> AnalyserNode
+- In a requestAnimationFrame loop (~60fps):
+  - Get float time-domain data from AnalyserNode
+  - Run pitchy PitchDetector.forFloat32Array(bufferSize) on it
+  - Extract pitch (Hz) and clarity (0-1)
+  - If clarity < 0.8 or RMS of buffer < 0.015, set pitchHz to null
+- Export: { pitchHz: number | null, clarity: number }
+- Clean up AnalyserNode and animation frame on unmount
+
+Note: The AnalyserNode can be shared with useAudioQuality if both hooks are refactored to accept one. Consider exposing a shared AnalyserNode from useAudioStream.
+
+Depends on pitchy installation (issue 42).
+
+---
+COMMENT
+2026-05-14T14:28:42.651316786Z
+author: daring-harbor
+
+Created usePitchDetection.ts hook using pitchy PitchDetector.forFloat32Array. Reads from shared AnalyserNode at ~60fps. Returns pitchHz (null when clarity < 0.8 or rms < 0.015) and clarity. TypeScript build passes.

@@ -1,0 +1,38 @@
+---
+id: 43
+title: Create useAudioQuality hook
+type: task
+status: closed
+priority: 1
+parent: 39
+blocked_by:
+- 42
+- 54
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:22:47.368181810Z
+updated_at: 2026-05-14T14:28:42.648093653Z
+closed_at: 2026-05-14T14:28:42.648093152Z
+---
+
+Create test-client/src/hooks/useAudioQuality.ts
+
+Input: AudioContext and mic source node (from useAudioStream, which must expose these via ref/return value).
+
+Functionality:
+- Create an AnalyserNode (fftSize=4096) connected to the mic source
+- Compute RMS energy from getFloatTimeDomainData (reject if < 0.015)
+- Compute spectral flatness from getFloatFrequencyData: geometric mean / arithmetic mean of magnitudes. Clamp minimum bin magnitude to 1e-10 before log to avoid -Infinity. Flat spectrum (~1.0) = noise/clicks; tonal signal = low flatness (< 0.5)
+- Update at requestAnimationFrame rate
+- Export: { isQualitySample: boolean, rms: number, spectralFlatness: number }
+
+A sample is quality when: rms >= 0.015 AND spectralFlatness < 0.5
+
+Prerequisite: useAudioStream must be modified to expose AudioContext and source MediaStreamAudioSourceNode via its return value. Depends on pitchy being installed (issue 42).
+
+---
+COMMENT
+2026-05-14T14:28:42.644568933Z
+author: daring-harbor
+
+Created useAudioQuality.ts hook. Computes RMS energy and spectral flatness from shared AnalyserNode at requestAnimationFrame rate. Exports isQualitySample (rms >= 0.015 AND flatness < 0.5), rms, spectralFlatness. TypeScript build passes.

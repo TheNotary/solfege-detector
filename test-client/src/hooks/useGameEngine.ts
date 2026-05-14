@@ -34,13 +34,28 @@ export function syllableY(syllable: Syllable): number {
   return 85 - (idx / (SOLFEGE_SCALE.length - 1)) * 70;
 }
 
+/** Target frequencies for each syllable based on C3 reference. */
+export const TARGET_FREQUENCIES: Record<Syllable, number> = {
+  do: 130.81,
+  re: 146.83,
+  mi: 164.81,
+  fa: 174.61,
+  sol: 196.0,
+  la: 220.0,
+  ti: 246.94,
+};
+
 export interface UseGameEngineReturn {
   notes: GameNote[];
   speed: number;
   setSpeed: (s: number) => void;
   score: Score;
   /** Call every frame with current volume. Returns hit syllable or null. */
-  checkHit: (isSounding: boolean) => { syllable: Syllable; noteId: number } | null;
+  checkHit: (isSounding: boolean) => {
+    syllable: Syllable;
+    noteId: number;
+    targetFrequencyHz: number;
+  } | null;
   startGame: () => void;
   stopGame: () => void;
   isRunning: boolean;
@@ -70,7 +85,7 @@ export function useGameEngine(): UseGameEngineReturn {
   }, []);
 
   const checkHit = useCallback(
-    (isSounding: boolean): { syllable: Syllable; noteId: number } | null => {
+    (isSounding: boolean): { syllable: Syllable; noteId: number; targetFrequencyHz: number } | null => {
       if (!isSounding) return null;
       const current = notesRef.current;
       for (let i = 0; i < current.length; i++) {
@@ -85,7 +100,11 @@ export function useGameEngine(): UseGameEngineReturn {
             total: scoreRef.current.total,
           };
           setScore({ ...scoreRef.current });
-          return { syllable: note.syllable, noteId: note.id };
+          return {
+            syllable: note.syllable,
+            noteId: note.id,
+            targetFrequencyHz: TARGET_FREQUENCIES[note.syllable],
+          };
         }
       }
       return null;

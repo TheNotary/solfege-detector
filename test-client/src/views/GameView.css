@@ -107,7 +107,9 @@
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 4px;
 }
 
 .hud-right {
@@ -206,4 +208,27 @@
   background: #22c55e;
   border-radius: 3px;
   transition: height 0.05s ease-out;
+}
+
+/* Drone controls */
+.drone-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drone-control input[type="range"] {
+  width: 80px;
+  accent-color: #f59e0b;
+}
+
+.game-btn.drone {
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  background-color: #374151;
+}
+
+.game-btn.drone.active {
+  background-color: #f59e0b;
+  color: #000;
 }

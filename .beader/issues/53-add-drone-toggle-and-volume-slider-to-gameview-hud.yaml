@@ -1,0 +1,39 @@
+---
+id: 53
+title: Add drone toggle and volume slider to GameView HUD
+type: task
+status: closed
+priority: 2
+parent: 41
+blocked_by:
+- 52
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:24:47.990921076Z
+updated_at: 2026-05-14T14:34:56.486162418Z
+closed_at: 2026-05-14T14:34:56.486161818Z
+---
+
+Modify test-client/src/views/GameView.tsx to add drone controls.
+
+Changes:
+1. Import and call useDrone(audioContext) hook
+2. Add drone toggle button to the HUD controls area (near speed slider):
+   - When off: label shows speaker icon + 'Drone' (muted style)
+   - When on: label shows speaker icon + 'Drone' (active/highlighted style)
+   - onClick: call startDrone() or stopDrone() based on isDroning state
+3. Add volume slider (visible when drone is active or always):
+   - Range input: min=0, max=0.3, step=0.01, default=0.15
+   - Label: 'Drone Vol' or just a small speaker icon
+   - onChange: call setDroneVolume(value)
+4. Ensure AudioContext from useAudioStream is passed to useDrone
+   - This requires useAudioStream to expose its AudioContext (may already be done for useAudioQuality/usePitchDetection)
+
+Depends on useDrone hook (issue 52).
+
+---
+COMMENT
+2026-05-14T14:34:56.483947314Z
+author: daring-harbor
+
+Added drone toggle button and volume slider (0-0.3 range) to GameView HUD center area. Styled with amber accent color. Toggle calls startDrone/stopDrone, slider calls setDroneVolume.

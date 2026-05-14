@@ -64,7 +64,8 @@ async def websocket_endpoint(ws: WebSocket):
     threshold = DEFAULT_CONFIDENCE_THRESHOLD
     inference_in_progress = False
     pending_window = None
-    logger.info("WebSocket client connected")
+    client_ip = ws.client.host if ws.client else "unknown"
+    logger.info("WebSocket client connected from %s", client_ip)
 
     async def _run_inference(window, sr, thresh):
         """Run detection in a thread and send results back on the WebSocket."""
@@ -134,8 +135,17 @@ async def websocket_endpoint(ws: WebSocket):
                             syllable = str(data.get("syllable", "unknown"))
                             hit = bool(data.get("hit", False))
                             client_ts = str(data.get("timestamp", ""))
+                            fft_pitch_hz = data.get("fft_pitch_hz")
+                            target_frequency_hz = data.get("target_frequency_hz")
 
                             wav_bytes, metadata = recording_buffer.capture(syllable, hit)
+
+                            # Add client IP and pitch metadata
+                            metadata["client_ip"] = client_ip
+                            if fft_pitch_hz is not None:
+                                metadata["fft_pitch_hz"] = float(fft_pitch_hz)
+                            if target_frequency_hz is not None:
+                                metadata["target_frequency_hz"] = float(target_frequency_hz)
 
                             # Sanitise for safe filenames
                             safe_ts = _SAFE_FILENAME_RE.sub("_", client_ts)

@@ -1,0 +1,22 @@
+---
+id: 42
+title: Install pitchy library
+type: task
+status: closed
+priority: 2
+parent: 39
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:22:11.876318869Z
+updated_at: 2026-05-14T14:27:05.572513259Z
+closed_at: 2026-05-14T14:27:05.572511958Z
+---
+
+Run pnpm add pitchy in test-client/. This provides the YIN-based pitch detection algorithm and frequency-domain analysis needed for both audio quality gating and the pitch indicator bar. Verify it builds cleanly with existing TypeScript config.
+
+---
+COMMENT
+2026-05-14T14:27:05.567465687Z
+author: daring-harbor
+
+Installed pitchy 4.1.0 via pnpm. TypeScript build passes cleanly.

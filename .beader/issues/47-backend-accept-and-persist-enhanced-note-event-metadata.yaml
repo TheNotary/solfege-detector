@@ -1,0 +1,47 @@
+---
+id: 47
+title: 'Backend: accept and persist enhanced note_event metadata'
+type: task
+status: closed
+priority: 1
+parent: 39
+blocked_by:
+- 46
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:23:25.235758441Z
+updated_at: 2026-05-14T14:29:28.396313340Z
+closed_at: 2026-05-14T14:29:28.396312440Z
+---
+
+Modify lib-py/solfege_detector/server.py and lib-py/solfege_detector/recorder.py to accept and persist the new metadata fields.
+
+Server changes (server.py):
+- Parse fft_pitch_hz (float, optional) and target_frequency_hz (float, optional) from incoming note_event JSON messages
+- Pass these fields through to the RecordingBuffer when triggering a capture
+
+Recorder changes (recorder.py):
+- Accept fft_pitch_hz, target_frequency_hz, and client_ip as parameters in the capture/save method
+- Include all three fields in the .metadata JSON output alongside existing fields (syllable, timestamp, hit, sample_rate, channels, duration_seconds)
+
+New .metadata format example:
+{
+  "syllable": "do",
+  "timestamp": "2026-05-14T13:12:50.577408+00:00",
+  "hit": true,
+  "sample_rate": 44100,
+  "channels": 1,
+  "duration_seconds": 3.0,
+  "client_ip": "192.168.1.100",
+  "fft_pitch_hz": 132.5,
+  "target_frequency_hz": 130.81
+}
+
+Depends on issue 46 (client IP capture) for the IP field.
+
+---
+COMMENT
+2026-05-14T14:29:28.392503159Z
+author: daring-harbor
+
+Already implemented as part of issue 46. The server.py note_event handler now parses fft_pitch_hz and target_frequency_hz from the message and adds them to the metadata dict (along with client_ip) before writing to disk.

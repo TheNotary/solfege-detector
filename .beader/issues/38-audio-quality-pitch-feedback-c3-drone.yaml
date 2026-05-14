@@ -1,0 +1,39 @@
+---
+id: 38
+title: Audio Quality, Pitch Feedback & C3 Drone
+type: epic
+status: closed
+priority: 1
+created_at: 2026-05-14T14:21:10.653658614Z
+updated_at: 2026-05-14T14:35:02.487610466Z
+closed_at: 2026-05-14T14:35:02.487608666Z
+---
+
+## Summary
+
+Frontend-side audio quality gating, a real-time pitch indicator bar, and a synthesized C3 drone for pitch reference. Backend receives enhanced metadata (FFT pitch + target frequency) and logs client IP.
+
+## User Message
+
+Our lib-py and test-client need to work together to detect if a sound sample has captured a quality sound sample or not. 2026-05-14T13_12_50.588Z_do.wav just has some background clicks, so it should not have been saved to disk. 2026-05-14T13_12_54.389Z_re.wav appears absolutely silent. These detections can be made from the frontend. The backend should capture the IP address of the frontend sending in the data.
+
+The metadata that the frontend sends to the backend should include the FFT pitch measured for the sample and the target frequency the note should have been.
+
+Our test-client/ needs to play a spa-like C drone to help the user get a feel for what frequency they should sing do at.
+
+Our test-client/ needs a pitch indicator, shown on the left side of the screen as a glowy fiery bar that appears when sound is heard, and a pitch is detected. It appears to-scale with the alignment of the notes, so will appear over the Do label when the user sings a perfect C. It will move in real-time as the users pitch changes and fades out when the pitch can no longer be determined. If the pitch jumps up and down rapidly, the bars sluggish movement smooths this effect out. The bars acceleration is limited to ensure this. A slider bar should be exposed allowing control over the acceleration.
+
+## Plan
+
+Three feature areas:
+1. Audio Quality Detection - Frontend RMS + spectral flatness gating, enhanced note_event metadata (fft_pitch_hz, target_frequency_hz), backend IP capture
+2. Pitch Indicator Bar - Real-time glowing fiery bar on left side, smoothed movement with configurable acceleration slider
+3. C3 Drone - Synthesized spa-like 130.81 Hz tone via Web Audio oscillators
+
+## Decisions
+- pitchy library for frontend pitch detection (YIN algorithm)
+- C3 (130.81 Hz) reference pitch / drone
+- RMS + spectral flatness for quality gating
+- Frontend gates note_event sending
+- Synthesized oscillator drone (no audio files)
+- One-octave range C3-C4 for pitch bar

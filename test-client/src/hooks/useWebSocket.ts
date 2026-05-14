@@ -9,7 +9,11 @@ export interface DetectionMessage {
 interface UseWebSocketReturn {
   send: (data: Blob | ArrayBuffer) => void;
   sendConfig: (config: { confidence_threshold: number }) => void;
-  sendNoteEvent: (syllable: string, hit: boolean) => void;
+  sendNoteEvent: (
+    syllable: string,
+    hit: boolean,
+    pitchData?: { fft_pitch_hz: number | null; target_frequency_hz: number }
+  ) => void;
   lastMessage: DetectionMessage | null;
   isConnected: boolean;
   connect: () => void;
@@ -111,16 +115,25 @@ export function useWebSocket(url: string): UseWebSocketReturn {
   );
 
   const sendNoteEvent = useCallback(
-    (syllable: string, hit: boolean) => {
+    (
+      syllable: string,
+      hit: boolean,
+      pitchData?: { fft_pitch_hz: number | null; target_frequency_hz: number }
+    ) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({
-            type: "note_event",
-            syllable,
-            hit,
-            timestamp: new Date().toISOString(),
-          })
-        );
+        const msg: Record<string, unknown> = {
+          type: "note_event",
+          syllable,
+          hit,
+          timestamp: new Date().toISOString(),
+        };
+        if (pitchData) {
+          if (pitchData.fft_pitch_hz !== null) {
+            msg.fft_pitch_hz = pitchData.fft_pitch_hz;
+          }
+          msg.target_frequency_hz = pitchData.target_frequency_hz;
+        }
+        wsRef.current.send(JSON.stringify(msg));
       }
     },
     []

@@ -1,0 +1,48 @@
+---
+id: 49
+title: Create useSmoothedPitch hook
+type: task
+status: closed
+priority: 1
+parent: 40
+blocked_by:
+- 48
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:23:55.003773162Z
+updated_at: 2026-05-14T14:31:43.514960108Z
+closed_at: 2026-05-14T14:31:43.514959608Z
+---
+
+Create test-client/src/hooks/useSmoothedPitch.ts
+
+Implements acceleration-limited smoothing for the pitch indicator bar position.
+
+Input: raw pitchHz (number | null) from usePitchDetection, acceleration parameter (number, configurable via slider)
+
+Algorithm (critically-damped spring or velocity-clamped smoothing):
+- Track state: { currentPitch: number, velocity: number, opacity: number }
+- Each frame (requestAnimationFrame):
+  - If pitchHz is not null (pitch detected):
+    - Compute target = pitchHz
+    - Compute desired acceleration toward target
+    - Clamp acceleration magnitude to configured max (the slider value)
+    - Update velocity += clampedAcceleration * dt
+    - Update currentPitch += velocity * dt
+    - Ramp opacity toward 1.0
+  - If pitchHz is null (no pitch):
+    - Apply deceleration (drag) to velocity until it reaches 0
+    - Ramp opacity toward 0.0 (fade out over ~0.5s)
+- Export: { displayPitchHz: number | null, opacity: number }
+- displayPitchHz is null only when opacity reaches 0 (fully faded)
+
+The acceleration slider (0.1 = very sluggish, 5.0 = very responsive) controls how quickly the bar can change direction/speed.
+
+Depends on usePitchDetection (issue 48).
+
+---
+COMMENT
+2026-05-14T14:31:43.511780969Z
+author: daring-harbor
+
+Created useSmoothedPitch.ts with velocity-clamped spring dynamics. Tracks currentPitch/velocity/opacity. Acceleration parameter (slider value * 800 Hz/s^2) controls max change rate. Fades in at 4/s, fades out at 2/s. Clamps pitch to 80-500Hz range. TypeScript build passes.

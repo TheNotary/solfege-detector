@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./GameView.css";
 import NoteSprite from "../components/NoteSprite";
-import { useGameEngine, CROSSHAIR_X, syllableY } from "../hooks/useGameEngine";
+import PitchBar from "../components/PitchBar";
+import { useGameEngine, CROSSHAIR_X, syllableY, TARGET_FREQUENCIES } from "../hooks/useGameEngine";
 import { useVolumeDetection } from "../hooks/useVolumeDetection";
 import { useAudioStream } from "../hooks/useAudioStream";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { useAudioQuality } from "../hooks/useAudioQuality";
+import { usePitchDetection } from "../hooks/usePitchDetection";
+import { useSmoothedPitch } from "../hooks/useSmoothedPitch";
+import { useDrone } from "../hooks/useDrone";
 import AppConfig from "../AppConfig";
 
 const SOLFEGE_LABELS = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
@@ -37,17 +42,37 @@ export default function GameView(_props: GameViewProps) {
     [send]
   );
 
-  const { startRecording, stopRecording, isRecording } = useAudioStream({
-    onChunk,
-    onVolume,
-  });
+  const { startRecording, stopRecording, isRecording, analyserNode, audioContext } =
+    useAudioStream({
+      onChunk,
+      onVolume,
+    });
+
+  const { isQualitySample } = useAudioQuality(analyserNode);
+  const { pitchHz } = usePitchDetection(analyserNode);
+
+  // Pitch indicator smoothing
+  const [acceleration, setAcceleration] = useState(1.0);
+  const { displayPitchHz, opacity: pitchOpacity } = useSmoothedPitch(
+    pitchHz,
+    acceleration
+  );
+
+  // Drone
+  const { startDrone, stopDrone, isDroning, setDroneVolume } = useDrone(
+    audioContext
+  );
+  const [droneVolume, setDroneVolumeState] = useState(0.15);
 
   // Check for hits every frame when running
   useEffect(() => {
     if (!isRunning || !isRecording) return;
-    const hit = checkHit(isSounding);
+    const hit = checkHit(isSounding && isQualitySample);
     if (hit) {
-      sendNoteEvent(hit.syllable, true);
+      sendNoteEvent(hit.syllable, true, {
+        fft_pitch_hz: pitchHz,
+        target_frequency_hz: hit.targetFrequencyHz,
+      });
       sentNoteIds.current.add(hit.noteId);
     }
   });
@@ -59,11 +84,14 @@ export default function GameView(_props: GameViewProps) {
         note.state === "missed" &&
         !sentNoteIds.current.has(note.id)
       ) {
-        sendNoteEvent(note.syllable, false);
+        sendNoteEvent(note.syllable, false, {
+          fft_pitch_hz: pitchHz,
+          target_frequency_hz: TARGET_FREQUENCIES[note.syllable],
+        });
         sentNoteIds.current.add(note.id);
       }
     }
-  }, [notes, sendNoteEvent]);
+  }, [notes, sendNoteEvent, pitchHz]);
 
   const handleToggle = useCallback(() => {
     if (isRunning) {
@@ -101,6 +129,9 @@ export default function GameView(_props: GameViewProps) {
         }}
       />
 
+      {/* Pitch indicator bar */}
+      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} />
+
       {/* Notes */}
       {notes.map((note) => (
         <NoteSprite key={note.id} note={note} containerRef={containerRef} />
@@ -129,6 +160,37 @@ export default function GameView(_props: GameViewProps) {
               step={5}
               value={speed}
               onChange={(e) => setSpeed(parseInt(e.target.value, 10))}
+            />
+          </div>
+          <div className="speed-control">
+            <span>Responsiveness: {acceleration.toFixed(1)}</span>
+            <input
+              type="range"
+              min={0.1}
+              max={5.0}
+              step={0.1}
+              value={acceleration}
+              onChange={(e) => setAcceleration(parseFloat(e.target.value))}
+            />
+          </div>
+          <div className="drone-control">
+            <button
+              className={`game-btn drone ${isDroning ? "active" : ""}`}
+              onClick={() => (isDroning ? stopDrone() : startDrone())}
+            >
+              {isDroning ? "🔊 Drone" : "🔇 Drone"}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={0.3}
+              step={0.01}
+              value={droneVolume}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setDroneVolumeState(v);
+                setDroneVolume(v);
+              }}
             />
           </div>
         </div>

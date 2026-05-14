@@ -1,0 +1,52 @@
+---
+id: 50
+title: Create PitchBar component
+type: task
+status: closed
+priority: 1
+parent: 40
+blocked_by:
+- 49
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:24:10.557202011Z
+updated_at: 2026-05-14T14:34:56.476724303Z
+closed_at: 2026-05-14T14:34:56.476723803Z
+---
+
+Create test-client/src/components/PitchBar.tsx and associated CSS styles.
+
+Props: { displayPitchHz: number | null, opacity: number }
+
+Visual design:
+- Capsule/bar shape: 10px wide, 30px tall, border-radius: 5px
+- Positioned absolutely on the left side of the game area, overlapping the staff labels
+- Left offset: ~45px (after the note labels)
+
+Glow/fire aesthetic:
+- Background: linear-gradient(to top, #ff4500, #ff8c00, #ffd700) (red-orange-yellow fire)
+- Box-shadow: multiple layers for glow effect:
+  - 0 0 8px #ff4500 (close red glow)
+  - 0 0 16px #ff8c00 (medium orange glow)
+  - 0 0 24px #ffd700 (distant yellow glow)
+- CSS keyframe animation for subtle flicker (opacity oscillation 0.85-1.0 at ~3Hz)
+
+Y-position mapping:
+- Linear interpolation: C3 (130.81 Hz) -> 85% top (do row), B3 (246.94 Hz) -> 15% top (ti row)
+- Formula: top% = 85 - ((pitchHz - 130.81) / (246.94 - 130.81)) * 70
+- Clamp to 15%-85% range for out-of-range pitches
+- Position set via inline style (JS-driven, NOT CSS transition)
+
+Opacity: controlled by the opacity prop (0 = invisible, 1 = full)
+- When opacity is 0, component renders nothing (or visibility: hidden)
+
+Add styles to test-client/src/views/GameView.css (or a new PitchBar.css)
+
+Depends on useSmoothedPitch (issue 49).
+
+---
+COMMENT
+2026-05-14T14:34:56.473883210Z
+author: daring-harbor
+
+Created PitchBar.tsx component with fire/glow aesthetic. Capsule shape (10x30px), positioned at left=45px with linear interpolation from C3 (85%) to B3 (15%). CSS animated flicker keyframes with multi-layer box-shadow glow. Renders null when opacity <= 0.01.

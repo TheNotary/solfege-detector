@@ -1,0 +1,37 @@
+---
+id: 45
+title: Enhance note_event message with pitch metadata
+type: task
+status: closed
+priority: 1
+parent: 39
+blocked_by:
+- 44
+created_at: 2026-05-14T14:23:06.111120725Z
+updated_at: 2026-05-14T14:31:56.536687876Z
+closed_at: 2026-05-14T14:31:56.536687176Z
+---
+
+Update the WebSocket note_event message format to include FFT pitch data.
+
+Frontend changes (test-client/src/hooks/useWebSocket.ts):
+- Update sendNoteEvent() to accept and send two additional fields:
+  - fft_pitch_hz: number (detected fundamental frequency from pitchy at time of hit)
+  - target_frequency_hz: number (expected Hz for the target syllable)
+- Update the message type/interface
+
+Frontend changes (test-client/src/hooks/useGameEngine.ts):
+- Each GameNote should carry its target_frequency_hz based on C3 reference:
+  do=130.81, re=146.83, mi=164.81, fa=174.61, sol=196.00, la=220.00, ti=246.94
+- Return target_frequency_hz from checkHit()
+
+The fft_pitch_hz value comes from usePitchDetection (shared with pitch indicator bar), read at the moment a hit is registered.
+
+Depends on quality gate integration (issue 44) for the sending logic.
+
+---
+COMMENT
+2026-05-14T14:31:56.532857259Z
+author: daring-harbor
+
+Already implemented as part of issue 44. GameView now passes { fft_pitch_hz, target_frequency_hz } to sendNoteEvent for both hits and misses. useGameEngine exports TARGET_FREQUENCIES map and checkHit returns targetFrequencyHz.

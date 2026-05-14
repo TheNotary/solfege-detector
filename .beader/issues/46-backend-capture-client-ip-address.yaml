@@ -1,0 +1,32 @@
+---
+id: 46
+title: 'Backend: capture client IP address'
+type: task
+status: closed
+priority: 1
+parent: 39
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:23:15.213425889Z
+updated_at: 2026-05-14T14:28:42.638437169Z
+closed_at: 2026-05-14T14:28:42.638436669Z
+---
+
+Modify lib-py/solfege_detector/server.py to capture the connecting client's IP address.
+
+Changes:
+- At WebSocket connection time, extract client IP from websocket.client.host (Starlette WebSocket object)
+- Store the IP in connection-level state (variable accessible throughout the WS handler)
+- Pass client_ip to the RecordingBuffer/recorder when saving recordings
+- Add client_ip field to .metadata JSON files
+
+Note: If behind a reverse proxy, consider X-Forwarded-For header. For now, direct connection IP is sufficient.
+
+This is backend-only work and can proceed independently of frontend changes.
+
+---
+COMMENT
+2026-05-14T14:28:42.634844762Z
+author: daring-harbor
+
+Extracted websocket.client.host at connection time, stored as client_ip. Added client_ip to metadata dict. Also pre-emptively parse fft_pitch_hz and target_frequency_hz from note_event messages (for issue 47).

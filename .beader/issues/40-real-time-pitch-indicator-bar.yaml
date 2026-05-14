@@ -1,0 +1,39 @@
+---
+id: 40
+title: Real-Time Pitch Indicator Bar
+type: feature
+status: closed
+priority: 1
+parent: 38
+created_at: 2026-05-14T14:21:49.495791690Z
+updated_at: 2026-05-14T14:35:02.463028262Z
+closed_at: 2026-05-14T14:35:02.463026561Z
+---
+
+A glowing, fiery vertical bar on the left side of the screen that shows detected pitch in real-time, aligned to the staff note positions, with smoothed movement and configurable acceleration.
+
+## Goal
+Give the user immediate visual feedback on their sung pitch. The bar maps pitch to the staff Y-positions (C3=do at bottom, B3=ti at top), moves smoothly with acceleration-limited updates, and fades out when pitch is undetectable.
+
+## Approach
+- Create usePitchDetection hook: uses pitchy PitchDetector with AnalyserNode (fftSize=4096 for reliable C3 detection at 44100Hz). Runs at ~60fps via requestAnimationFrame. Exports { pitchHz: number|null, clarity: number }. pitchHz is null when clarity < 0.8 or volume below RMS threshold.
+- Create useSmoothedPitch hook: critically-damped spring or velocity-clamped exponential smoothing. Tracks displayed pitch + velocity. Clamps acceleration to configurable max. When pitch is null, decelerate and fade opacity. Exports { displayPitchHz: number|null, opacity: number }.
+- Create PitchBar component: 8-12px wide, ~30px tall capsule. Positioned absolutely on left side overlapping staff labels. Fire/glow aesthetic via CSS box-shadow (orange/red/yellow gradient + animated flicker keyframes). Y-position: linear interpolation C3(130.81Hz)=85% to B3(246.94Hz)=15%. Opacity fades based on confidence. JS-driven positioning (not CSS transitions).
+- Add acceleration slider to HUD: range 0.1-5.0, step 0.1, default 1.0, label Responsiveness.
+- Integrate in GameView: render PitchBar in game-area div, pass displayPitchHz and opacity as props.
+
+## Key Files
+- test-client/src/hooks/usePitchDetection.ts (NEW)
+- test-client/src/hooks/useSmoothedPitch.ts (NEW)
+- test-client/src/components/PitchBar.tsx (NEW)
+- test-client/src/views/GameView.tsx (add PitchBar + slider)
+- test-client/src/views/GameView.css (glow/fire styles)
+- test-client/src/hooks/useAudioStream.ts (expose AnalyserNode)
+
+## Verification
+1. Sing steady note -> bar appears at correct staff row, stays stable
+2. Slide pitch up/down -> bar moves smoothly without jitter
+3. Stop singing -> bar fades out gracefully
+4. Rapid pitch changes -> bar moves sluggishly (smoothing visible)
+5. Adjust slider -> responsiveness changes noticeably
+6. C3 = over do label, B3 = over ti label

@@ -1,0 +1,33 @@
+---
+id: 44
+title: Integrate quality gate in GameView
+type: task
+status: closed
+priority: 1
+parent: 39
+blocked_by:
+- 43
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:22:55.830720325Z
+updated_at: 2026-05-14T14:31:43.505428093Z
+closed_at: 2026-05-14T14:31:43.505427493Z
+---
+
+Modify test-client/src/views/GameView.tsx to integrate the useAudioQuality hook.
+
+Changes:
+- Import and call useAudioQuality hook (passing AudioContext and source from useAudioStream)
+- Use isQualitySample alongside isSounding for hit detection logic
+- Only send note_event to backend when isQualitySample === true
+- Add brief visual feedback when a sample is rejected (e.g., red flash on the volume meter or a small rejection indicator)
+- Ensure rejected samples do NOT trigger recording on backend
+
+Depends on useAudioQuality hook (issue 43) being implemented.
+
+---
+COMMENT
+2026-05-14T14:31:43.502722550Z
+author: daring-harbor
+
+Integrated useAudioQuality and usePitchDetection in GameView. Hit detection now gates on isQualitySample (rms + spectral flatness). sendNoteEvent passes fft_pitch_hz and target_frequency_hz. Also updated useWebSocket.sendNoteEvent to accept pitchData param, and useGameEngine.checkHit to return targetFrequencyHz. Added TARGET_FREQUENCIES map. TypeScript build passes.

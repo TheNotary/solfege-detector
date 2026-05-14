@@ -1,0 +1,43 @@
+---
+id: 39
+title: Frontend Audio Quality Detection & Gating
+type: feature
+status: closed
+priority: 1
+parent: 38
+created_at: 2026-05-14T14:21:28.464935646Z
+updated_at: 2026-05-14T14:35:02.456775393Z
+closed_at: 2026-05-14T14:35:02.456773593Z
+---
+
+Frontend detects silence and non-tonal noise (clicks) and suppresses note_event messages for low-quality samples. Backend captures client IP and accepts enhanced metadata.
+
+## Goal
+Prevent low-quality audio samples (silence, clicks, background noise) from being saved to disk. The frontend gates note_event sending using RMS energy threshold and spectral flatness analysis. When a quality sample IS sent, it includes the measured FFT pitch and expected target frequency. Backend logs the client IP with each recording.
+
+## Approach
+- Install pitchy library (YIN algorithm) for pitch detection and frequency-domain analysis
+- Create useAudioQuality hook: computes RMS energy (reject < 0.015) and spectral flatness (geometric/arithmetic mean of FFT magnitudes; flat ~1.0 = noise, tonal < 0.5)
+- Integrate quality gate in GameView: only send note_event when isQualitySample === true
+- Enhance note_event message: add fft_pitch_hz and target_frequency_hz fields
+- Backend: extract websocket.client.host, persist in .metadata as client_ip
+- Backend: parse and persist fft_pitch_hz + target_frequency_hz in .metadata
+
+## Target Frequencies (C3 base)
+do=130.81, re=146.83, mi=164.81, fa=174.61, sol=196.00, la=220.00, ti=246.94
+
+## Key Files
+- test-client/src/hooks/useAudioStream.ts (expose AudioContext/source)
+- test-client/src/hooks/useAudioQuality.ts (NEW)
+- test-client/src/views/GameView.tsx (integrate gate)
+- test-client/src/hooks/useWebSocket.ts (update sendNoteEvent signature)
+- test-client/src/hooks/useGameEngine.ts (target frequency per note)
+- lib-py/solfege_detector/server.py (extract client IP)
+- lib-py/solfege_detector/recorder.py (persist new metadata fields)
+
+## Verification
+1. Record silence into mic -> no note_event sent
+2. Tap/click near mic -> spectral flatness rejects it
+3. Sing a clear tone -> note_event sent with valid fft_pitch_hz and target_frequency_hz
+4. Saved .metadata files contain client_ip, fft_pitch_hz, target_frequency_hz
+5. Existing pytest suite passes

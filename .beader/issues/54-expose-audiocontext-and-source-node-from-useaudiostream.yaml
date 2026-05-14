@@ -1,0 +1,33 @@
+---
+id: 54
+title: Expose AudioContext and source node from useAudioStream
+type: task
+status: closed
+priority: 1
+parent: 38
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:25:03.402229291Z
+updated_at: 2026-05-14T14:27:05.558289148Z
+closed_at: 2026-05-14T14:27:05.558287547Z
+---
+
+Modify test-client/src/hooks/useAudioStream.ts to expose the AudioContext and MediaStreamAudioSourceNode so they can be shared with other hooks (useAudioQuality, usePitchDetection, useDrone).
+
+Current state: useAudioStream creates an AudioContext internally but only exposes the onChunk callback and volume RMS. The AudioContext and source node are not accessible externally.
+
+Changes:
+- Add audioContext (AudioContext | null) to the hook's return value
+- Add sourceNode (MediaStreamAudioSourceNode | null) to the hook's return value
+- These are null when streaming is not active, non-null when active
+- Ensure cleanup on stop still disconnects/closes properly
+- Consider also exposing an AnalyserNode (fftSize=4096) that other hooks can share, to avoid creating multiple AnalyserNodes from the same source
+
+This is a prerequisite for useAudioQuality (issue 43), usePitchDetection (issue 48), and useDrone (issue 52).
+
+---
+COMMENT
+2026-05-14T14:27:05.545978505Z
+author: daring-harbor
+
+Exposed audioContext, sourceNode, and analyserNode (fftSize=4096) from useAudioStream return value. Added analyserRef with proper cleanup on stop. TypeScript build passes.

@@ -1,0 +1,47 @@
+---
+id: 52
+title: Create useDrone hook
+type: task
+status: closed
+priority: 2
+parent: 41
+blocked_by:
+- 54
+assignees:
+- daring-harbor
+created_at: 2026-05-14T14:24:38.525425251Z
+updated_at: 2026-05-14T14:31:43.520754372Z
+closed_at: 2026-05-14T14:31:43.520753772Z
+---
+
+Create test-client/src/hooks/useDrone.ts
+
+Implements a spa-like C3 drone using Web Audio OscillatorNodes.
+
+Input: AudioContext (shared from useAudioStream)
+
+Implementation:
+- Create oscillator stack on startDrone():
+  - Fundamental: OscillatorNode type='sine', frequency=130.81 Hz (C3)
+  - 2nd harmonic: OscillatorNode type='sine', frequency=261.63 Hz, through GainNode at 0.25 (-12dB)
+  - 3rd harmonic: OscillatorNode type='sine', frequency=392.44 Hz, through GainNode at 0.125 (-18dB)
+- Optional LFO for warmth:
+  - OscillatorNode type='sine', frequency=0.2 Hz
+  - Connect to fundamental.detune with gain of 2 (cents)
+- Master GainNode for volume control (default 0.15)
+- Route master gain -> audioContext.destination
+- startDrone(): create oscillators, start them, ramp master gain from 0 to volume over 0.5s (linearRampToValueAtTime)
+- stopDrone(): ramp master gain to 0 over 0.5s, then stop and disconnect oscillators after ramp completes
+- setDroneVolume(v): update master gain (with short ramp for smoothness)
+- Export: { startDrone: () => void, stopDrone: () => void, isDroning: boolean, setDroneVolume: (v: number) => void }
+
+Important: oscillators cannot be restarted after stop(). Must create new ones each time startDrone() is called.
+
+No dependency on pitchy - this uses only Web Audio API.
+
+---
+COMMENT
+2026-05-14T14:31:43.518347988Z
+author: daring-harbor
+
+Created useDrone.ts hook. Oscillator stack: fundamental C3 sine + 2nd harmonic (-12dB) + 3rd harmonic (-18dB) + LFO vibrato (0.2Hz, ±2 cents). Master GainNode with 0.5s fade-in/out. Handles start/stop/volume control. TypeScript build passes.

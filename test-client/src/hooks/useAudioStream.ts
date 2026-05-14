@@ -12,6 +12,9 @@ interface UseAudioStreamReturn {
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   isRecording: boolean;
+  audioContext: AudioContext | null;
+  sourceNode: MediaStreamAudioSourceNode | null;
+  analyserNode: AnalyserNode | null;
 }
 
 /**
@@ -35,6 +38,7 @@ export function useAudioStream(
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const onChunkRef = useRef(options.onChunk);
   onChunkRef.current = options.onChunk;
   const onVolumeRef = useRef(options.onVolume);
@@ -52,8 +56,10 @@ export function useAudioStream(
 
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
+    analyserRef.current?.disconnect();
     processorRef.current = null;
     sourceRef.current = null;
+    analyserRef.current = null;
 
     if (audioContextRef.current) {
       audioContextRef.current.close();
@@ -85,6 +91,12 @@ export function useAudioStream(
 
     const source = ctx.createMediaStreamSource(stream);
     sourceRef.current = source;
+
+    // Shared AnalyserNode (fftSize=4096 for reliable low-frequency pitch detection)
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 4096;
+    analyserRef.current = analyser;
+    source.connect(analyser);
 
     // ScriptProcessorNode for raw sample access (widely supported)
     const bufferSize = 4096;
@@ -146,5 +158,12 @@ export function useAudioStream(
     setIsRecording(true);
   }, []);
 
-  return { startRecording, stopRecording, isRecording };
+  return {
+    startRecording,
+    stopRecording,
+    isRecording,
+    audioContext: audioContextRef.current,
+    sourceNode: sourceRef.current,
+    analyserNode: analyserRef.current,
+  };
 }
