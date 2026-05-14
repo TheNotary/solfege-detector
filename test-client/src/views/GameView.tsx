@@ -106,39 +106,9 @@ export default function GameView(_props: GameViewProps) {
 
   return (
     <div className="game-container" ref={containerRef}>
-      {/* Staff lines and labels */}
-      {SOLFEGE_LABELS.map((s) => {
-        const y = syllableY(s);
-        return (
-          <div key={s}>
-            <div className="staff-line" style={{ top: `${y}%` }} />
-            <div className="staff-label" style={{ top: `${y}%` }}>
-              {s}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Crosshair */}
-      <div className="crosshair" style={{ left: `${CROSSHAIR_X}%` }} />
-      <div
-        className="crosshair-zone"
-        style={{
-          left: `${CROSSHAIR_X - 6}%`,
-          width: "12%",
-        }}
-      />
-
-      {/* Pitch indicator bar */}
-      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} />
-
-      {/* Notes */}
-      {notes.map((note) => (
-        <NoteSprite key={note.id} note={note} containerRef={containerRef} />
-      ))}
-
       {/* HUD */}
       <div className="game-hud">
+
         <div className="hud-left">
           <button
             className={`game-btn ${isRunning ? "stop" : "start"}`}
@@ -202,6 +172,37 @@ export default function GameView(_props: GameViewProps) {
           </span>
         </div>
       </div>
+
+      {/* Staff lines and labels */}
+      {SOLFEGE_LABELS.map((s) => {
+        const y = syllableY(s);
+        return (
+          <div key={s}>
+            <div className="staff-line" style={{ top: `${y}%` }} />
+            <div className="staff-label" style={{ top: `${y}%` }}>
+              {s}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Crosshair */}
+      <div className="crosshair" style={{ left: `${CROSSHAIR_X}%` }} />
+      <div
+        className="crosshair-zone"
+        style={{
+          left: `${CROSSHAIR_X - 6}%`,
+          width: "12%",
+        }}
+      />
+
+      {/* Pitch indicator bar */}
+      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} />
+
+      {/* Notes */}
+      {notes.map((note) => (
+        <NoteSprite key={note.id} note={note} containerRef={containerRef} />
+      ))}
 
       {/* Volume meter */}
       <div className="volume-meter">
