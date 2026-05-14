@@ -15,8 +15,8 @@ test-client/        React UI: microphone capture and detection display
 ### How It Works
 
 1. **Client** captures microphone audio as PCM (16-bit int, mono, 44100 Hz) and streams it over WebSocket
-2. **Server** buffers audio in a 7-second sliding window with 1-second hop
-3. **CLAP model** (msclap v2023) runs zero-shot classification against solfege prompts
+2. **Server** buffers audio in a 1.5-second sliding window with 0.25-second hop
+3. **CLAP model** (msclap v2023) runs zero-shot classification asynchronously (via `asyncio.to_thread` with frame-skipping) against solfege prompts
 4. **Detection events** (syllable + confidence) are pushed back to the client in real-time
 
 ## Quick Start
@@ -83,7 +83,8 @@ cd test-client && pnpm install && npx tsc --noEmit
 ## Technical Details
 
 - **Model**: Microsoft CLAP v2023 (zero-shot, no fine-tuning)
-- **Audio**: 7-second window, 44100 Hz, 64 mel bins
+- **Audio**: 1.5-second window, 0.25-second hop, 44100 Hz, 64 mel bins
 - **Prompts**: "someone singing the solfege syllable {X}" + negative classes (noise, talking, silence)
+- **Environment**: Set `LOG_LEVEL` env var to control verbosity (default: `info`)
 - **Platform**: Python 3.12, CPU inference (torch CPU), aarch64/x86_64
 - **Dependencies**: numba==0.60/llvmlite==0.43 pinned for aarch64 LLVM compatibility

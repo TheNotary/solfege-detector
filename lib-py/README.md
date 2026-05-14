@@ -23,7 +23,7 @@ CLI options:
 --host              Bind host (default: 0.0.0.0)
 --port              Bind port (default: 8000)
 --confidence-threshold  Default confidence threshold (default: 0.5)
---log-level         Log level (default: info)
+--log-level         Log level (default: info, or LOG_LEVEL env var)
 ```
 
 ## Run Tests
