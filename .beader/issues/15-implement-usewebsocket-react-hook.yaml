@@ -1,0 +1,41 @@
+---
+id: 15
+title: Implement useWebSocket React hook
+type: task
+status: closed
+priority: 1
+parent: 2
+blocked_by:
+- 14
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:16:19.586048539Z
+updated_at: 2026-05-14T04:52:39.695905876Z
+closed_at: 2026-05-14T04:52:39.695905321Z
+---
+
+Create `test-client/src/hooks/useWebSocket.ts` — custom React hook for WebSocket communication with the solfege detection server.
+
+**API:**
+- `useWebSocket(url: string)` returns:
+  - `send(data: Blob | ArrayBuffer)` — send binary audio data
+  - `sendConfig(config: { confidence_threshold: number })` — send JSON config message
+  - `lastMessage: DetectionMessage | null` — last received detection event
+  - `isConnected: boolean` — connection status
+  - `connect()` / `disconnect()` — manual connection control
+
+**Behavior:**
+- Connects to the WebSocket URL on mount (default from AppConfig.SOCKET_URL)
+- Auto-reconnects on disconnect with exponential backoff
+- Parses incoming JSON text messages as detection events: `{ type: "detection", syllable: string, confidence: number }`
+- Handles binary and text message types from server
+
+**Files to create:** `test-client/src/hooks/useWebSocket.ts`
+**Depends on:** #14 (CRUD cleanup, so App.tsx is clean)
+
+---
+COMMENT
+2026-05-14T04:52:39.693410570Z
+author: olive-spark
+
+Created useWebSocket hook with: send(binary), sendConfig(JSON), lastMessage state, isConnected status, connect/disconnect control, and exponential backoff reconnection. Also fixed AppConfig SOCKET_URL from /websocket to /ws to match server endpoint.

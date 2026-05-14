@@ -1,0 +1,40 @@
+---
+id: 16
+title: Implement useAudioStream microphone capture hook
+type: task
+status: closed
+priority: 1
+parent: 2
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:16:27.111472194Z
+updated_at: 2026-05-14T04:52:45.040710353Z
+closed_at: 2026-05-14T04:52:45.040709797Z
+---
+
+Create `test-client/src/hooks/useAudioStream.ts` — custom React hook for capturing microphone audio and converting to PCM for streaming.
+
+**API:**
+- `useAudioStream(onChunk: (chunk: ArrayBuffer) => void)` returns:
+  - `startRecording()` — requests mic permission, starts capture
+  - `stopRecording()` — stops capture, releases mic
+  - `isRecording: boolean`
+
+**Implementation:**
+- Uses `navigator.mediaDevices.getUserMedia({ audio: true })` to capture microphone
+- Uses AudioWorkletNode (preferred) or ScriptProcessorNode (fallback) for raw audio access
+- Resamples to 44100 Hz mono if device sample rate differs (Web Audio API provides float32 at device rate)
+- Converts float32 → int16 PCM ArrayBuffer for transmission
+- Calls `onChunk` callback every ~250ms with a PCM chunk
+- Cleans up AudioContext and MediaStream on stop
+
+**Wire format:** 16-bit signed integer, mono, 44100 Hz — matches server expectation.
+
+**Files to create:** `test-client/src/hooks/useAudioStream.ts`
+
+---
+COMMENT
+2026-05-14T04:52:45.038685245Z
+author: olive-spark
+
+Created useAudioStream hook: getUserMedia mono capture, ScriptProcessorNode for raw samples, float32→int16 PCM conversion, linear interpolation resampling to 44100Hz, 250ms chunk interval with accumulation buffer, proper cleanup of AudioContext/MediaStream on stop.

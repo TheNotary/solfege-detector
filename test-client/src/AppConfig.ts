@@ -17,7 +17,7 @@ const getAppConfig = () => {
             return {
                 APP_ENV:           appEnv ? appEnv : 'local',
                 BUILD_VERSION:     import.meta.env.VITE_APP_TEST_CLIENT_BUILD_VERSION,
-                SOCKET_URL:        'ws://localhost:8000/websocket',
+                SOCKET_URL:        'ws://localhost:8000/ws',
                 BACKEND_URL:       'http://localhost:8000',
             };
     }

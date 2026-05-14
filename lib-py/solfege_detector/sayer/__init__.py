@@ -1,2 +1,0 @@
-from .sayer import Sayer
-

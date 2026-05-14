@@ -1,0 +1,44 @@
+---
+id: 7
+title: Implement SolfegeDetector core detection engine
+type: feature
+status: closed
+priority: 1
+parent: 2
+blocked_by:
+- 4
+- 6
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:15:01.831801325Z
+updated_at: 2026-05-14T04:43:34.086110474Z
+closed_at: 2026-05-14T04:43:34.086109827Z
+---
+
+Create `lib-py/solfege_detector/detector.py` — the core CLAP-based detection engine.
+
+**SolfegeDetector class:**
+- Constructor loads CLAP model (msclap v2023), pre-computes text embeddings for 7 solfege prompts + 3 negative-class prompts (from accoustic-model/prompt_config.py)
+- `detect(audio_chunk: np.ndarray, sample_rate: int, threshold: float) -> list[Detection]`:
+  - Writes audio chunk to a temp .wav file (CLAP's get_audio_embeddings() requires file paths)
+  - Computes audio embeddings via CLAP
+  - Computes cosine similarity with pre-computed text embeddings
+  - Applies softmax to get probabilities
+  - Returns only solfege syllables whose probability exceeds threshold AND beats all negative classes
+
+**Detection dataclass:** `Detection(syllable: str, confidence: float)`
+
+**Key design notes:**
+- Text embeddings computed once at init time (expensive), audio embeddings per-inference (cheaper)
+- Temp file approach for simplicity; can optimize to in-memory later if latency requires it
+- CPU-only initially; document GPU as recommended for production
+
+**Files to create:** `lib-py/solfege_detector/detector.py`
+**Depends on:** #4 (prompt config), #6 (dependencies)
+
+---
+COMMENT
+2026-05-14T04:43:34.083449624Z
+author: olive-spark
+
+7

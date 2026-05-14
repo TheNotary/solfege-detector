@@ -1,14 +1,11 @@
-# TODO: Correct this description of the program
 """
-Some module for Python
-==================================
+Solfege Detector — real-time solfege syllable detection using CLAP zero-shot audio classification.
 
-solfege_detector is a Python module integrating classical machine
-things in the tightly-knit world of Python packages.
-
-See https://example.com for complete documentation.
+Detects standard solfege syllables (do, re, mi, fa, sol, la, ti) from audio streams
+using Microsoft CLAP's contrastive language-audio pretraining model.
 """
 
-# This patterns of defining the import can't be followed if you want
-# to invoke the project on the CLI via python -m solfege_detector.main
-# from .main import main
+from solfege_detector.audio_buffer import AudioBuffer
+from solfege_detector.detector import Detection, SolfegeDetector
+
+__all__ = ["AudioBuffer", "Detection", "SolfegeDetector"]

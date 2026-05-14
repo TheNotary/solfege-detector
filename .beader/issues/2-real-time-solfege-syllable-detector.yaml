@@ -1,0 +1,39 @@
+---
+id: 2
+title: Real-Time Solfege Syllable Detector
+type: feature
+status: closed
+priority: 1
+parent: 1
+assignees:
+- agile-whale
+created_at: 2026-05-14T04:14:13.580084803Z
+updated_at: 2026-05-14T04:54:44.155320030Z
+closed_at: 2026-05-14T04:54:44.155319472Z
+---
+
+## Summary
+
+Build a Python library that uses Microsoft CLAP zero-shot audio classification to detect standard solfege syllables (do, re, mi, fa, sol, la, ti) from a real-time audio stream. A FastAPI WebSocket server receives audio chunks from a React client, runs CLAP inference on a sliding 7-second window with ~1-second hop, and pushes detection events back.
+
+## User Message
+
+This is a freshly scaffolded project. We need this project to be a Python library that can analyze an audio stream in real-time and detect when a solfege syllable is spoken/sung.
+
+The python library in lib-py/ needs an integration test that includes .mp3 files that can be used to validate the app ignores random background chatter, and correctly identifies solfege syllables.
+
+The project has test-client/, which needs logic for connecting to the server and streaming microphone audio to the server. Latency is important. The moment a solfege syllable is detected, even if it's surrounded by irrelevant noise, the server should send a message to the client noting the syllable that was detected, and its confidence level. The client should print this information to the console. The client should expose the controls for setting the confidence threshold for detection.
+
+The acoustic-model/ directory might be where the machine learning training/setup code will go. We need to try using https://github.com/microsoft/CLAP for the acoustic-model, and do as little custom work as possible to get the job done of detecting do re mi fa sol la and ti.
+
+## Plan
+
+- **Phase 1:** Acoustic Model Setup (accoustic-model/) — CLAP prompt config and validation scripts
+- **Phase 2:** Core Detection Library (lib-py/solfege_detector/) — SolfegeDetector, AudioBuffer, FastAPI WebSocket server, CLI entrypoint, scaffold cleanup
+- **Phase 3:** Integration Tests (lib-py/solfege_detector/tests/) — TTS fixture generation, integration tests for detection accuracy and noise rejection
+- **Phase 4:** Test Client (test-client/) — WebSocket hook, microphone capture hook, audio streaming UI with confidence threshold control
+
+### Architecture
+- **WebSocket Protocol:** Client sends binary PCM (16-bit int, mono, 44100 Hz) + JSON config. Server sends JSON detection events.
+- **CLAP Integration:** msclap v2023 zero-shot. Pre-computed text embeddings for 7 solfege + 3 negative prompts. 7-second sliding window, 1-second hop.
+- **Decisions:** Standard solfege (do/re/mi/fa/sol/la/ti), FastAPI, TTS-generated test fixtures, no fine-tuning — prompt engineering only.

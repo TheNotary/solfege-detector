@@ -1,0 +1,35 @@
+---
+id: 14
+title: Remove CRUD boilerplate from test-client
+type: chore
+status: closed
+priority: 3
+parent: 2
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:16:11.252142976Z
+updated_at: 2026-05-14T04:19:28.732750530Z
+closed_at: 2026-05-14T04:19:28.732749971Z
+---
+
+Remove the CRUD demo boilerplate from the React test-client that came with the scaffold.
+
+**Delete:**
+- `test-client/src/views/ResourceList.tsx`
+- `test-client/src/views/ResourceDetail.tsx`
+- `test-client/src/types/Resource.ts`
+
+**Modify:**
+- `test-client/src/App.tsx` — remove resource routes and links, keep only Home route
+
+The axios dependency can remain since it may be useful for health checks, but the resource-related views/types should be removed.
+
+**Files to delete:** `ResourceList.tsx`, `ResourceDetail.tsx`, `Resource.ts`
+**Files to modify:** `test-client/src/App.tsx`
+
+---
+COMMENT
+2026-05-14T04:19:28.730176872Z
+author: olive-spark
+
+14

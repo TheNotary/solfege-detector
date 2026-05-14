@@ -1,0 +1,30 @@
+---
+id: 4
+title: Define solfege prompt configuration
+type: task
+status: closed
+priority: 1
+parent: 2
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:14:34.992761795Z
+updated_at: 2026-05-14T04:17:36.154069504Z
+closed_at: 2026-05-14T04:17:36.154068870Z
+---
+
+Create `accoustic-model/prompt_config.py` defining the text prompts used for CLAP zero-shot classification. This replaces traditional model training — prompt engineering is the "training" step.
+
+**Solfege prompts (7):** One prompt per syllable using a template like `"someone singing the solfege syllable {X}"` for do, re, mi, fa, sol, la, ti.
+
+**Negative-class prompts (3):** `"background noise"`, `"people talking"`, `"silence"` — used to reject non-solfege audio and reduce false positives.
+
+The config should export prompt lists that can be imported by both the detection library and the standalone test script.
+
+**Files to create:** `accoustic-model/prompt_config.py`
+
+---
+COMMENT
+2026-05-14T04:17:36.149554283Z
+author: olive-spark
+
+4

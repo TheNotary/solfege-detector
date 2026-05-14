@@ -1,0 +1,38 @@
+---
+id: 12
+title: Generate TTS test fixture .mp3 files
+type: task
+status: closed
+priority: 1
+parent: 2
+blocked_by:
+- 6
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:15:49.985721195Z
+updated_at: 2026-05-14T04:47:01.313415890Z
+closed_at: 2026-05-14T04:47:01.313415144Z
+---
+
+Create `lib-py/solfege_detector/tests/generate_fixtures.py` — a script using gTTS to produce test audio fixtures.
+
+**Fixtures to generate (saved to `tests/fixtures/`):**
+- `do.mp3`, `re.mp3`, `mi.mp3`, `fa.mp3`, `sol.mp3`, `la.mp3`, `ti.mp3` — one per solfege syllable (TTS speaking/singing the syllable)
+- `chatter.mp3` — random background speech (e.g., "the weather is nice today, I wonder what time it is")
+- `do_with_noise.mp3` — solfege syllable mixed with background chatter using pydub overlay
+
+**Script behavior:**
+- Uses gTTS to synthesize speech
+- Uses pydub to mix/overlay audio for the noisy fixture
+- Idempotent: overwrites existing fixtures
+- Can be run standalone: `python tests/generate_fixtures.py`
+
+**Files to create:** `lib-py/solfege_detector/tests/generate_fixtures.py`, `lib-py/solfege_detector/tests/fixtures/` directory
+**Depends on:** #6 (gTTS/pydub dev dependencies)
+
+---
+COMMENT
+2026-05-14T04:47:01.310936228Z
+author: olive-spark
+
+12

@@ -1,0 +1,39 @@
+---
+id: 8
+title: Implement AudioBuffer sliding window ring buffer
+type: task
+status: closed
+priority: 1
+parent: 2
+blocked_by:
+- 6
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:15:14.755250745Z
+updated_at: 2026-05-14T04:20:05.977642220Z
+closed_at: 2026-05-14T04:20:05.977641662Z
+---
+
+Create `lib-py/solfege_detector/audio_buffer.py` — sliding window ring buffer for streaming audio.
+
+**AudioBuffer class:**
+- Constructor params: `window_size_seconds` (default 7.0), `hop_size_seconds` (default 1.0), `sample_rate` (default 44100)
+- `append(chunk: bytes) -> Optional[np.ndarray]`:
+  - Accepts raw PCM bytes (16-bit signed int, mono)
+  - Converts PCM int16 → float32 numpy array and appends to internal buffer
+  - When enough new audio has accumulated (>= hop_size_seconds), returns a 7-second float32 numpy array
+  - When insufficient new audio, returns None
+  - Maintains a circular buffer that discards old audio beyond the window size
+- Thread-safe for single-producer (WebSocket receive loop) use
+
+**Wire format:** 16-bit signed integer, mono, 44100 Hz PCM — matches CLAP's native sample rate to avoid server-side resampling.
+
+**Files to create:** `lib-py/solfege_detector/audio_buffer.py`
+**Depends on:** #6 (numpy dependency)
+
+---
+COMMENT
+2026-05-14T04:20:05.975179098Z
+author: olive-spark
+
+8

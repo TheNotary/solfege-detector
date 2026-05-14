@@ -1,0 +1,39 @@
+---
+id: 6
+title: Update pyproject.toml dependencies for CLAP, FastAPI, and test tooling
+type: task
+status: closed
+priority: 1
+parent: 2
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:14:50.097029777Z
+updated_at: 2026-05-14T04:18:27.105028671Z
+closed_at: 2026-05-14T04:18:27.105028207Z
+---
+
+Update `lib-py/pyproject.toml`:
+
+**Add production dependencies:**
+- `msclap` — Microsoft CLAP model
+- `fastapi` — WebSocket server framework
+- `uvicorn[standard]` — ASGI server
+- `websockets` — WebSocket protocol support
+- `numpy` (remove version upper bound, keep >=1.23)
+- `soundfile` — audio file I/O
+
+**Add dev dependencies:**
+- `gTTS` — Google Text-to-Speech for generating test fixture .mp3 files
+- `pydub` — audio manipulation for mixing test fixtures
+
+**Remove:**
+- `torch==2.2.2` pin — let msclap resolve its own compatible torch version
+
+**Files to modify:** `lib-py/pyproject.toml`
+
+---
+COMMENT
+2026-05-14T04:18:27.101542554Z
+author: olive-spark
+
+6

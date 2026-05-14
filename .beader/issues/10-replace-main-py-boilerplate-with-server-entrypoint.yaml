@@ -1,0 +1,36 @@
+---
+id: 10
+title: Replace main.py boilerplate with server entrypoint
+type: task
+status: closed
+priority: 2
+parent: 2
+blocked_by:
+- 9
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:15:32.536698035Z
+updated_at: 2026-05-14T04:44:57.275651221Z
+closed_at: 2026-05-14T04:44:57.275650755Z
+---
+
+Rewrite `lib-py/solfege_detector/main.py` to start the FastAPI WebSocket server instead of the scaffold boilerplate.
+
+**main() should:**
+- Parse CLI arguments: `--host` (default 0.0.0.0), `--port` (default 8000), `--confidence-threshold` (default 0.5)
+- Start uvicorn serving the FastAPI app from server.py
+- Use argparse for CLI arg parsing
+
+**Also update:**
+- `lib-py/app.py` — should still call `main()` from the updated main module
+- `lib-py/solfege_detector/__init__.py` — update exports to expose SolfegeDetector, AudioBuffer, Detection
+
+**Files to modify:** `lib-py/solfege_detector/main.py`, `lib-py/app.py`, `lib-py/solfege_detector/__init__.py`
+**Depends on:** #9 (server must exist)
+
+---
+COMMENT
+2026-05-14T04:44:57.272855255Z
+author: olive-spark
+
+10

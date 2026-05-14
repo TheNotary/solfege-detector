@@ -1,30 +1,33 @@
-# Debugging
-import pdb
-import traceback
+"""CLI entrypoint for the solfege-detector server."""
 
-# Built-in dependencies
-import os
-import sys
+import argparse
+import logging
 
-# Local scripts
-from solfege_detector.config_helper import lookup_env_variables
-from solfege_detector.sayer import Sayer
+import uvicorn
 
 
-# This is the main entrypoint of the project defined by setup.py
-# which will be invoked when the user runs `solfege_detector` from the command line
-# following installation.
 def main():
-    username, password = lookup_env_variables()
+    parser = argparse.ArgumentParser(description="Solfege Detector — real-time solfege syllable detection server")
+    parser.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
+    parser.add_argument(
+        "--confidence-threshold",
+        type=float,
+        default=0.5,
+        help="Default confidence threshold for detection (default: 0.5)",
+    )
+    parser.add_argument("--log-level", default="info", help="Log level (default: info)")
+    args = parser.parse_args()
 
-    sayer = Sayer(greeting = "Sup")
-    print( sayer.say_hi() + " " + username + "!" )
+    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
 
-    # Useful debugging instructions
-    # pdb.set_trace()
-    dir(os)
+    uvicorn.run(
+        "solfege_detector.server:app",
+        host=args.host,
+        port=args.port,
+        log_level=args.log_level.lower(),
+    )
 
-# Here's python boilerplate for running the main function only when this script is run directly
-# (i.e. not when it's imported as a library)
+
 if __name__ == "__main__":
     main()

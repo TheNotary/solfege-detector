@@ -1,0 +1,44 @@
+---
+id: 17
+title: Build audio streaming UI with detection display and threshold control
+type: feature
+status: closed
+priority: 1
+parent: 2
+blocked_by:
+- 15
+- 16
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:16:36.607840051Z
+updated_at: 2026-05-14T04:53:33.746236127Z
+closed_at: 2026-05-14T04:53:33.746235569Z
+---
+
+Rewrite `test-client/src/views/Home.tsx` to be the main audio streaming UI.
+
+**UI elements:**
+- **Start/Stop button** — toggles microphone recording via useAudioStream
+- **Confidence threshold slider** — range 0.0 to 1.0, default 0.5. Sends config update to server via WebSocket when changed
+- **Connection status badge** — shows "Connected" (green) / "Disconnected" (red) based on WebSocket state
+- **Detection log** — scrollable list showing detected syllables with confidence percentage and timestamp, newest first
+- **Console logging** — every detection event is also logged via `console.log()` for debugging
+
+**Integration:**
+- Uses useWebSocket hook for server communication
+- Uses useAudioStream hook for mic capture
+- onChunk callback from useAudioStream sends PCM data via WebSocket send()
+- On detection message received, appends to detection log and console.logs it
+
+**Also update:**
+- `test-client/src/AppConfig.ts` — ensure SOCKET_URL default is `ws://localhost:8000/ws`
+
+**Files to modify:** `test-client/src/views/Home.tsx`, `test-client/src/AppConfig.ts`
+**Depends on:** #15 (WebSocket hook), #16 (audio stream hook)
+
+---
+COMMENT
+2026-05-14T04:53:33.743001395Z
+author: olive-spark
+
+Rewrote Home.tsx with: Start/Stop recording button, confidence threshold slider (0-1, default 0.5), connection status badge (green/red), scrollable detection log with syllable/confidence/timestamp, console.log for each detection. Integrates useWebSocket and useAudioStream hooks. AppConfig SOCKET_URL already fixed in #15.

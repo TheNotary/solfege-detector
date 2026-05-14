@@ -1,26 +1,38 @@
 [project]
 name = "solfege-detector"
 version = "0.1.0"
-description = "Add your description here"
+description = "Real-time solfege syllable detection using CLAP zero-shot audio classification"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   'setuptools',
-  'torch==2.2.2',
-  'transformers',
-  'numpy<2.0.0',
+  'msclap',
+  'fastapi',
+  'uvicorn[standard]',
+  'websockets',
+  'numpy',
+  'soundfile',
+  'torch>=2.1,<2.6',
+  'torchaudio>=2.1,<2.6',
+  'numba>=0.60,<0.61',
+  'llvmlite>=0.43,<0.44',
 ]
 
 [dependency-groups]
 dev = [
     "pytest",
+    "gTTS",
+    "pydub",
 ]
 
 [project.scripts]
 solfege-detector = 'solfege_detector.main:main'
 
-# This pattern enables relative imports
-# https://docs.astral.sh/uv/concepts/projects/dependencies/#path
-#[tool.uv.sources]
-#foo = { path = "/example/foo-0.1.0-py3-none-any.whl" }
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
 

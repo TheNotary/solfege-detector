@@ -6,3 +6,6 @@
 .eggs/
 build/
 .venv/
+
+# Generated test fixtures (binary, regenerated via generate_fixtures.py)
+solfege_detector/tests/fixtures/

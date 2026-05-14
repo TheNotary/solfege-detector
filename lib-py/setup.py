@@ -10,9 +10,12 @@ setup(name='solfege-detector',
     packages=find_packages(),
     install_requires=[
         'setuptools',
-				'torch',
-        'transformers',
-				'numpy<2.0.0'
+        'msclap',
+        'fastapi',
+        'uvicorn[standard]',
+        'websockets',
+        'numpy',
+        'soundfile',
     ],
     entry_points={
         'console_scripts': [

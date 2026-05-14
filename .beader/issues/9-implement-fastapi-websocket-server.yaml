@@ -1,0 +1,41 @@
+---
+id: 9
+title: Implement FastAPI WebSocket server
+type: feature
+status: closed
+priority: 1
+parent: 2
+blocked_by:
+- 7
+- 8
+assignees:
+- olive-spark
+created_at: 2026-05-14T04:15:23.454694053Z
+updated_at: 2026-05-14T04:44:21.070562165Z
+closed_at: 2026-05-14T04:44:21.070561608Z
+---
+
+Create `lib-py/solfege_detector/server.py` — FastAPI application with WebSocket endpoint for real-time audio streaming.
+
+**Endpoints:**
+- `GET /health` — health check (returns 200)
+- `WebSocket /ws` — main audio streaming endpoint
+
+**WebSocket /ws behavior:**
+- On connect: instantiate per-connection AudioBuffer; use shared SolfegeDetector singleton (model loads once)
+- On binary message: feed PCM bytes to AudioBuffer. If buffer returns a 7-second window, run SolfegeDetector.detect(). Send results as JSON: `{ "type": "detection", "syllable": "do", "confidence": 0.92 }`
+- On text message: parse as JSON config, e.g. `{ "type": "config", "confidence_threshold": 0.7 }` — updates per-connection threshold
+- On disconnect: cleanup buffer, log disconnection
+- Default confidence threshold: 0.5
+
+**Shared detector singleton:** SolfegeDetector is expensive to instantiate (loads model + computes text embeddings). Use a module-level singleton or FastAPI lifespan event to load once and share across connections.
+
+**Files to create:** `lib-py/solfege_detector/server.py`
+**Depends on:** #7 (detector), #8 (audio buffer)
+
+---
+COMMENT
+2026-05-14T04:44:21.068271493Z
+author: olive-spark
+
+9
