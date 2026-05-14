@@ -55,3 +55,22 @@ class TestAudioBuffer:
         buf.reset()
         # After reset, should need full window again
         assert buf.append(np.zeros(2000, dtype=np.int16).tobytes()) is None
+
+    def test_large_chunk_overflow(self):
+        """Chunks larger than remaining buffer space should not crash."""
+        buf = AudioBuffer(window_size_seconds=1.0, hop_size_seconds=0.5, sample_rate=8000)
+        # Partially fill (4000 samples = 0.5s)
+        buf.append(np.zeros(4000, dtype=np.int16).tobytes())
+        # Send a chunk bigger than remaining space (6000 samples > 4000 remaining)
+        chunk = np.ones(6000, dtype=np.int16).tobytes()
+        result = buf.append(chunk)
+        assert result is not None
+        assert len(result) == 8000
+
+    def test_chunk_larger_than_window(self):
+        """A single chunk larger than the entire window should work."""
+        buf = AudioBuffer(window_size_seconds=1.0, hop_size_seconds=0.5, sample_rate=8000)
+        huge_chunk = np.ones(16000, dtype=np.int16).tobytes()
+        result = buf.append(huge_chunk)
+        assert result is not None
+        assert len(result) == 8000

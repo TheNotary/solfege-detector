@@ -47,17 +47,19 @@ class AudioBuffer:
         if n == 0:
             return None
 
-        # Append to the ring buffer
-        if self._fill + n <= self.window_samples:
+        # If chunk is larger than the window, keep only the last window_samples
+        if n >= self.window_samples:
+            self._buffer[:] = samples[-self.window_samples:]
+            self._fill = self.window_samples
+        elif self._fill + n <= self.window_samples:
             # Still filling the initial window
             self._buffer[self._fill : self._fill + n] = samples
             self._fill += n
         else:
-            # Shift left and append at the end
-            shift = self._fill + n - self.window_samples
-            self._buffer[: self.window_samples - shift] = self._buffer[shift : self._fill]
-            write_start = max(0, self.window_samples - n)
-            self._buffer[write_start:self.window_samples] = samples[-(self.window_samples - write_start):]
+            # Shift existing data left to make room for new samples
+            keep = self.window_samples - n
+            self._buffer[:keep] = self._buffer[self._fill - keep : self._fill]
+            self._buffer[keep:] = samples
             self._fill = self.window_samples
 
         self._new_samples += n

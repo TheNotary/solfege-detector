@@ -91,7 +91,7 @@ async def websocket_endpoint(ws: WebSocket):
                             "message": str(exc),
                         })
 
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         logger.info("WebSocket client disconnected")
     except Exception:
         logger.exception("WebSocket error")
