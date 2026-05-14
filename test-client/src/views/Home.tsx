@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppConfig from "../AppConfig";
-import { DetectionMessage, useWebSocket } from "../hooks/useWebSocket";
+import { useWebSocket } from "../hooks/useWebSocket";
 import { useAudioStream } from "../hooks/useAudioStream";
 
 interface LogEntry {
