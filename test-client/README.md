@@ -16,7 +16,7 @@ In VSCode, the `.vscode/launch.json` settings allow you to click the play button
 Confugrations are meant to be exist in `.env.local` which is consumed by `src/AppConfig.ts`.  Initially the app will expect a websocket server listening as well as an http endpoint at port 8000 for local development.
 
 ```
-ws://localhost:8000/websocket
+ws://localhost:8000/ws
 http://localhost:8000
 ```
 
