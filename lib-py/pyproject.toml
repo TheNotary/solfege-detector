@@ -1,0 +1,26 @@
+[project]
+name = "solfege-detector"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  'setuptools',
+  'torch==2.2.2',
+  'transformers',
+  'numpy<2.0.0',
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+solfege-detector = 'solfege_detector.main:main'
+
+# This pattern enables relative imports
+# https://docs.astral.sh/uv/concepts/projects/dependencies/#path
+#[tool.uv.sources]
+#foo = { path = "/example/foo-0.1.0-py3-none-any.whl" }
+
