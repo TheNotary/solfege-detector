@@ -19,7 +19,7 @@ from solfege_detector.audio_buffer import AudioBuffer
 from solfege_detector.detector import SolfegeDetector
 from solfege_detector.onset_segmenter import segment_onsets
 from solfege_detector.recorder import RecordingBuffer
-from solfege_detector.silence_trimmer import trim_silence
+from solfege_detector.silence_trimmer import pick_center_segment, split_on_silence, trim_silence
 
 logger = logging.getLogger(__name__)
 
@@ -194,30 +194,34 @@ async def websocket_endpoint(ws: WebSocket):
                                 pcm_int16 = np.frombuffer(note_raw, dtype=np.int16)
                                 note_float = pcm_int16.astype(np.float32) / 32768.0
 
-                                # Apply onset segmentation to isolate tightest syllable
-                                segments = segment_onsets(note_float, buffer.sample_rate)
-                                if len(segments) > 1:
-                                    # Take the segment with the highest energy (most likely the sung note)
-                                    best_start, best_end = segments[-1]
-                                    note_float = note_float[best_start:best_end]
-                                    logger.info(
-                                        "Per-note audio trimmed: %d segments, using last (%.3fs)",
-                                        len(segments), len(note_float) / buffer.sample_rate,
-                                    )
-                                else:
-                                    logger.info("Per-note audio: single segment (%.3fs), no trim needed",
-                                               len(note_float) / buffer.sample_rate)
-
-                                # Trim leading/trailing silence around the syllable
-                                pre_trim_len = len(note_float)
-                                note_float = trim_silence(note_float, buffer.sample_rate)
-                                if len(note_float) == 0:
-                                    logger.warning("Per-note audio is entirely silent after trim — skipping save")
+                                # Split on silence gaps to isolate individual syllables,
+                                # then pick the segment closest to the center of the
+                                # capture window (aligned with the crosshair).
+                                voiced_segments = split_on_silence(
+                                    note_float, buffer.sample_rate,
+                                )
+                                if len(voiced_segments) == 0:
+                                    logger.warning("Per-note audio is entirely silent — skipping save")
                                     continue
-                                if len(note_float) < pre_trim_len:
+
+                                if len(voiced_segments) > 1:
+                                    best_start, best_end = pick_center_segment(
+                                        voiced_segments, len(note_float),
+                                    )
                                     logger.info(
-                                        "Silence trim: %.3fs → %.3fs",
-                                        pre_trim_len / buffer.sample_rate,
+                                        "Per-note audio: %d voiced segments, picked center (%.3fs–%.3fs of %.3fs)",
+                                        len(voiced_segments),
+                                        best_start / buffer.sample_rate,
+                                        best_end / buffer.sample_rate,
+                                        len(note_float) / buffer.sample_rate,
+                                    )
+                                    note_float = note_float[best_start:best_end]
+                                else:
+                                    # Single segment — just trim silence from edges
+                                    s, e = voiced_segments[0]
+                                    note_float = note_float[s:e]
+                                    logger.info(
+                                        "Per-note audio: single voiced segment (%.3fs)",
                                         len(note_float) / buffer.sample_rate,
                                     )
 
@@ -245,22 +249,22 @@ async def websocket_endpoint(ws: WebSocket):
                                 wav_bytes, metadata = recording_buffer.capture(syllable, hit)
                                 metadata["source"] = "rolling_buffer"
 
-                                # Apply silence trimming to rolling buffer capture too
+                                # Split on silence and pick center segment
                                 rb_audio, rb_sr = sf.read(io.BytesIO(wav_bytes), dtype="float32")
-                                rb_trimmed = trim_silence(rb_audio, rb_sr)
-                                if len(rb_trimmed) == 0:
+                                rb_segments = split_on_silence(rb_audio, rb_sr)
+                                if len(rb_segments) == 0:
                                     logger.warning("Rolling buffer capture is entirely silent — skipping save")
                                     continue
-                                if len(rb_trimmed) < len(rb_audio):
-                                    logger.info(
-                                        "Rolling buffer silence trim: %.3fs → %.3fs",
-                                        len(rb_audio) / rb_sr,
-                                        len(rb_trimmed) / rb_sr,
-                                    )
-                                    wav_buf = io.BytesIO()
-                                    sf.write(wav_buf, rb_trimmed, rb_sr, format="WAV", subtype="PCM_16")
-                                    wav_bytes = wav_buf.getvalue()
-                                    metadata["duration_seconds"] = round(len(rb_trimmed) / rb_sr, 3)
+                                if len(rb_segments) > 1:
+                                    s, e = pick_center_segment(rb_segments, len(rb_audio))
+                                    rb_audio = rb_audio[s:e]
+                                else:
+                                    s, e = rb_segments[0]
+                                    rb_audio = rb_audio[s:e]
+                                wav_buf = io.BytesIO()
+                                sf.write(wav_buf, rb_audio, rb_sr, format="WAV", subtype="PCM_16")
+                                wav_bytes = wav_buf.getvalue()
+                                metadata["duration_seconds"] = round(len(rb_audio) / rb_sr, 3)
 
                                 logger.info("Saved rolling buffer capture (fallback)")
 
