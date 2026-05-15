@@ -96,39 +96,37 @@ export default function GameView(_props: GameViewProps) {
     if (!isRunning || !isRecording) return;
     const hit = checkHit(isSounding && isQualitySample);
     if (hit) {
-      // Find the note to get its audio segment
-      const hitNote = notes.find((n) => n.id === hit.noteId);
-      sendNoteEvent(
-        hit.syllable,
-        true,
-        {
-          fft_pitch_hz: pitchHz,
-          target_frequency_hz: hit.targetFrequencyHz,
-        },
-        hitNote?.audioSegment ?? null
-      );
-      sentNoteIds.current.add(hit.noteId);
+      // Mark as hit but DON'T send note_event yet — wait for zone exit
+      // so we have the full audio capture.  sentNoteIds is NOT updated
+      // here; the zone-exit handler will send the event.
     }
   });
 
-  // Send note_event for notes that cross the crosshair without being hit
+  // Send note_event for notes that have exited the hit zone (audio captured).
+  // Both hits and misses are sent here to ensure we always have the full
+  // per-note audio segment attached.
   useEffect(() => {
     for (const note of notes) {
-      if (
-        note.state === "missed" &&
-        !sentNoteIds.current.has(note.id)
-      ) {
-        sendNoteEvent(
-          note.syllable,
-          false,
-          {
-            fft_pitch_hz: pitchHz,
-            target_frequency_hz: TARGET_FREQUENCIES[note.syllable],
-          },
-          note.audioSegment ?? null
-        );
-        sentNoteIds.current.add(note.id);
-      }
+      if (sentNoteIds.current.has(note.id)) continue;
+      if (note.state === "sliding") continue; // still in play
+
+      // Wait for audio capture to complete before sending.
+      // For hits, audioSegment is set when the note exits the hit zone.
+      // For misses, it's set at zone exit or screen exit.
+      // Only send without audio if capture was never started.
+      if (note.captureStarted && !note.audioSegment) continue;
+
+      const isHit = note.state === "hit";
+      sendNoteEvent(
+        note.syllable,
+        isHit,
+        {
+          fft_pitch_hz: pitchHz,
+          target_frequency_hz: TARGET_FREQUENCIES[note.syllable],
+        },
+        note.audioSegment ?? null
+      );
+      sentNoteIds.current.add(note.id);
     }
   }, [notes, sendNoteEvent, pitchHz]);
 

@@ -1,0 +1,12 @@
+{
+  "syllable": "sol",
+  "timestamp": "2026-05-15T13:21:21.123Z",
+  "hit": true,
+  "sample_rate": 44100,
+  "channels": 1,
+  "duration_seconds": 0.282,
+  "source": "per_note_capture",
+  "client_ip": "127.0.0.1",
+  "fft_pitch_hz": 209.5687955993084,
+  "target_frequency_hz": 196.0
+}

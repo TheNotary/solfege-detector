@@ -194,9 +194,24 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
       for (let i = current.length - 1; i >= 0; i--) {
         const note = current[i];
         if (note.state === "hit") {
-          // Keep hit notes briefly for confetti, then remove
+          const prevX = note.x;
           note.x -= pxPerSec * dt;
+
+          // Stop audio capture when hit note exits the left side of the hit zone
+          const hitZoneLeft = CROSSHAIR_X - HIT_ZONE_HALF;
+          if (note.captureStarted && !note.audioSegment && prevX >= hitZoneLeft && note.x < hitZoneLeft) {
+            const segment = stopNoteCaptureRef.current?.() ?? null;
+            if (segment) {
+              note.audioSegment = segment;
+            }
+          }
+
+          // Keep hit notes briefly for confetti, then remove
           if (note.x < -10) {
+            // Safety: stop capture if it somehow wasn't stopped yet
+            if (note.captureStarted && !note.audioSegment) {
+              stopNoteCaptureRef.current?.();
+            }
             current.splice(i, 1);
           }
           continue;

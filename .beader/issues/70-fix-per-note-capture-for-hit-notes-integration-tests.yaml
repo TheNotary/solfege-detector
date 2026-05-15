@@ -1,0 +1,20 @@
+---
+id: 70
+title: Fix per-note capture for hit notes + integration tests
+type: task
+status: closed
+priority: 1
+parent: 1
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T13:24:04.933765219Z
+updated_at: 2026-05-15T13:24:17.835432851Z
+closed_at: 2026-05-15T13:24:17.835432244Z
+---
+
+---
+COMMENT
+2026-05-15T13:24:17.832120542Z
+author: quiet-nexus
+
+70

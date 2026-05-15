@@ -1,0 +1,12 @@
+{
+  "syllable": "do",
+  "timestamp": "2026-05-15T13:21:16.723Z",
+  "hit": true,
+  "sample_rate": 44100,
+  "channels": 1,
+  "duration_seconds": 0.332,
+  "source": "per_note_capture",
+  "client_ip": "127.0.0.1",
+  "fft_pitch_hz": 125.67340755222247,
+  "target_frequency_hz": 130.81
+}

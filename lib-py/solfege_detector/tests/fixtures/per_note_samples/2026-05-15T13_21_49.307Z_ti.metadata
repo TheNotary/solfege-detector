@@ -1,0 +1,12 @@
+{
+  "syllable": "ti",
+  "timestamp": "2026-05-15T13:21:49.307Z",
+  "hit": true,
+  "sample_rate": 44100,
+  "channels": 1,
+  "duration_seconds": 0.26,
+  "source": "per_note_capture",
+  "client_ip": "127.0.0.1",
+  "fft_pitch_hz": 251.11677670324815,
+  "target_frequency_hz": 246.94
+}

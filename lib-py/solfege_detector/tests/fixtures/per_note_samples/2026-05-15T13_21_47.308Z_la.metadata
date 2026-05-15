@@ -1,0 +1,12 @@
+{
+  "syllable": "la",
+  "timestamp": "2026-05-15T13:21:47.308Z",
+  "hit": true,
+  "sample_rate": 44100,
+  "channels": 1,
+  "duration_seconds": 0.33,
+  "source": "per_note_capture",
+  "client_ip": "127.0.0.1",
+  "fft_pitch_hz": 226.2572817464938,
+  "target_frequency_hz": 220.0
+}
