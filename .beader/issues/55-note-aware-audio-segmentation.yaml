@@ -1,0 +1,58 @@
+---
+id: 55
+title: Note-Aware Audio Segmentation
+type: feature
+status: closed
+priority: 1
+parent: 1
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:01:12.871052750Z
+updated_at: 2026-05-15T05:23:26.143612799Z
+closed_at: 2026-05-15T05:23:26.143612041Z
+---
+
+## Summary
+
+At high BPM, the 1.5s CLAP window and 3s recording buffer capture multiple syllables, degrading both detection accuracy and training data quality. Fix by adding onset detection on both frontend and backend: the frontend captures per-note audio segments aligned to the game's hit zone, and the backend uses librosa onset detection to isolate the dominant syllable within the CLAP window before classification and recording. The 1.5s CLAP window size is preserved.
+
+## User Message
+
+When I increase the rate at which notes are coming in, the recorded samples are beginning to contain multiple syllables. We need the frontend to get smart about distinguishing between syllables, and sending tighter chunks of audio to the backend for analysis, and/or we need to improve the backend's handling of this same process.
+
+## Plan
+
+### Phase 1: Frontend — Per-Note Audio Capture
+Instead of relying on the backend's 3s rolling buffer for training data, accumulate a tight audio segment per note aligned to the game's hit zone, and send it with the note_event message.
+
+1. Add per-note audio accumulator to useAudioStream (startNoteCapture/stopNoteCapture)
+2. Wire note capture to hit zone enter/exit in useGameEngine
+3. Include per-note audio in note_event WebSocket message (two-frame protocol: binary + JSON)
+4. Add frontend onset detection for multi-note overlap guard
+
+### Phase 2: Backend — Onset-Aware Inference & Recording
+Add onset detection as a preprocessing step so the 1.5s CLAP window classifies the most recent isolated syllable rather than a multi-syllable mixture.
+
+5. Add onset_segmenter module (librosa-based)
+6. Integrate onset segmentation into SolfegeDetector.detect()
+7. Add multi-detection mode (detect_multi)
+8. Update server to handle per-note audio from frontend
+9. Make RecordingBuffer a fallback only
+
+### Phase 3: Tuning & Configuration
+10. Expose onset detection parameters via config
+11. Add onset visualization to frontend
+
+### Decisions
+- 1.5s CLAP window preserved — onset segmentation + zero-padding instead of shrinking
+- Per-note audio from frontend replaces 3s rolling buffer as primary recording source; rolling buffer kept as fallback
+- Two-frame WebSocket protocol (binary + JSON) for note events
+- Onset detection on both sides — frontend for real-time tighter captures; backend for authoritative pre-classification segmentation
+- librosa for backend onset detection — battle-tested, already in dependency tree
+
+---
+COMMENT
+2026-05-15T05:23:26.139669466Z
+author: quiet-nexus
+
+55

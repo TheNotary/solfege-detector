@@ -1,0 +1,46 @@
+---
+id: 61
+title: Integrate onset segmentation into SolfegeDetector.detect()
+type: task
+status: closed
+priority: 1
+parent: 55
+blocked_by:
+- 60
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:02:15.850283234Z
+updated_at: 2026-05-15T05:11:17.434037389Z
+closed_at: 2026-05-15T05:11:17.434035655Z
+---
+
+Before CLAP classification, run onset segmentation on the 1.5s window. If multiple segments are found, extract the most recent (rightmost) segment. Zero-pad it to 1.5s (centering the segment) so CLAP still receives its expected window length, but the actual audio content is a single syllable surrounded by silence.
+
+## Requirements
+- Modify `detect()` to accept an optional `segment_onsets=True` flag (default True)
+- When enabled:
+  1. Call `onset_segmenter.segment_onsets(window, sr)` to find syllable boundaries
+  2. If multiple segments found, select the most recent (last) segment
+  3. Extract that segment from the window
+  4. Create a 1.5s zero-filled array and center the segment within it
+  5. Pass the zero-padded array to CLAP instead of the raw window
+- When disabled (segment_onsets=False): pass raw window to CLAP unchanged (backward compatible)
+- Log onset count and segment selection for debugging
+
+## Design Notes
+- Zero-padding preserves the 1.5s window that CLAP expects
+- Centering avoids edge effects in CLAP's internal windowing
+- Consider: if confidence is low with zero-padding, experiment with looping the segment to fill 1.5s as an alternative (deferred — note in code comment)
+
+## Files
+- `lib-py/solfege_detector/detector.py`
+
+## Dependencies
+- Depends on: #60 (onset_segmenter module must exist)
+
+---
+COMMENT
+2026-05-15T05:11:17.429307556Z
+author: quiet-nexus
+
+61

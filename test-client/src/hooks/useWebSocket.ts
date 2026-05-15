@@ -8,11 +8,17 @@ export interface DetectionMessage {
 
 interface UseWebSocketReturn {
   send: (data: Blob | ArrayBuffer) => void;
-  sendConfig: (config: { confidence_threshold: number }) => void;
+  sendConfig: (config: {
+    confidence_threshold?: number;
+    segment_mode?: "latest" | "multi" | "off";
+    onset_sensitivity?: number;
+    onset_min_gap_ms?: number;
+  }) => void;
   sendNoteEvent: (
     syllable: string,
     hit: boolean,
-    pitchData?: { fft_pitch_hz: number | null; target_frequency_hz: number }
+    pitchData?: { fft_pitch_hz: number | null; target_frequency_hz: number },
+    audioSegment?: ArrayBuffer | null
   ) => void;
   lastMessage: DetectionMessage | null;
   isConnected: boolean;
@@ -106,9 +112,14 @@ export function useWebSocket(url: string): UseWebSocketReturn {
   }, []);
 
   const sendConfig = useCallback(
-    (config: { confidence_threshold: number }) => {
+    (config: {
+      confidence_threshold?: number;
+      segment_mode?: "latest" | "multi" | "off";
+      onset_sensitivity?: number;
+      onset_min_gap_ms?: number;
+    }) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify(config));
+        wsRef.current.send(JSON.stringify({ type: "config", ...config }));
       }
     },
     []
@@ -118,15 +129,28 @@ export function useWebSocket(url: string): UseWebSocketReturn {
     (
       syllable: string,
       hit: boolean,
-      pitchData?: { fft_pitch_hz: number | null; target_frequency_hz: number }
+      pitchData?: { fft_pitch_hz: number | null; target_frequency_hz: number },
+      audioSegment?: ArrayBuffer | null
     ) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
+        const correlationId = audioSegment
+          ? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+          : undefined;
+
+        // Two-frame protocol: send binary audio first if available
+        if (audioSegment && correlationId) {
+          wsRef.current.send(audioSegment);
+        }
+
         const msg: Record<string, unknown> = {
           type: "note_event",
           syllable,
           hit,
           timestamp: new Date().toISOString(),
         };
+        if (correlationId) {
+          msg.correlationId = correlationId;
+        }
         if (pitchData) {
           if (pitchData.fft_pitch_hz !== null) {
             msg.fft_pitch_hz = pitchData.fft_pitch_hz;

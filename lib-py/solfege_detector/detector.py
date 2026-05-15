@@ -34,6 +34,7 @@ class Detection:
     """A detected solfege syllable with its confidence score."""
     syllable: str
     confidence: float
+    offset_seconds: float = 0.0
 
 
 class SolfegeDetector:
@@ -58,6 +59,7 @@ class SolfegeDetector:
         audio: np.ndarray,
         sample_rate: int = 44_100,
         threshold: float = 0.5,
+        use_onset_segmentation: bool = True,
     ) -> List[Detection]:
         """Run zero-shot classification on a float32 audio chunk.
 
@@ -69,6 +71,10 @@ class SolfegeDetector:
             Sample rate of *audio*.
         threshold:
             Minimum probability for a solfege syllable to be returned.
+        use_onset_segmentation:
+            When True and multiple onsets are detected, isolate the most
+            recent syllable before classification. When False, classify
+            the raw window unchanged.
 
         Returns
         -------
@@ -78,6 +84,30 @@ class SolfegeDetector:
         duration = len(audio) / sample_rate
         logger.info("detect() called: %d samples, %d Hz, %.3fs",
                     len(audio), sample_rate, duration)
+
+        # Onset segmentation: isolate most recent syllable if multiple detected
+        if use_onset_segmentation:
+            from solfege_detector.onset_segmenter import segment_onsets
+
+            segments = segment_onsets(audio, sample_rate)
+            logger.info("Onset segmentation: %d segment(s) detected", len(segments))
+            if len(segments) > 1:
+                # Take the most recent (rightmost) segment
+                start, end = segments[-1]
+                segment_audio = audio[start:end]
+                segment_duration = len(segment_audio) / sample_rate
+                logger.info(
+                    "Using most recent segment: %.3fs-%.3fs (%.3fs duration)",
+                    start / sample_rate, end / sample_rate, segment_duration,
+                )
+                # Zero-pad to original window size, centering the segment
+                window_samples = len(audio)
+                padded = np.zeros(window_samples, dtype=np.float32)
+                offset = (window_samples - len(segment_audio)) // 2
+                padded[offset:offset + len(segment_audio)] = segment_audio
+                audio = padded
+                # TODO: If confidence is low with zero-padding, experiment with
+                # looping the segment to fill the window as an alternative.
 
         # Write audio to a temp WAV file (CLAP requires file paths)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
@@ -117,3 +147,75 @@ class SolfegeDetector:
         det_summary = ", ".join(f"{d.syllable}({d.confidence:.4f})" for d in detections) or "none"
         logger.info("Returning %d detection(s): %s", len(detections), det_summary)
         return detections
+
+    def detect_multi(
+        self,
+        audio: np.ndarray,
+        sample_rate: int = 44_100,
+        threshold: float = 0.5,
+    ) -> List[Detection]:
+        """Classify each onset segment independently, returning multiple detections.
+
+        Unlike ``detect()`` which only classifies the most recent segment,
+        this method runs CLAP on every segment found by onset detection and
+        returns one detection per segment (if above threshold).
+
+        Note: latency scales linearly with the number of detected onsets.
+
+        Parameters
+        ----------
+        audio:
+            1-D float32 numpy array normalised to [-1, 1].
+        sample_rate:
+            Sample rate of *audio*.
+        threshold:
+            Minimum probability for a solfege syllable to be returned.
+
+        Returns
+        -------
+        List of ``Detection`` objects sorted by offset_seconds ascending.
+        Each detection includes the temporal offset of its segment within
+        the original window.
+        """
+        from solfege_detector.onset_segmenter import segment_onsets
+
+        segments = segment_onsets(audio, sample_rate)
+        logger.info("detect_multi: %d segment(s) found", len(segments))
+
+        all_detections: List[Detection] = []
+        window_samples = len(audio)
+
+        for seg_idx, (start, end) in enumerate(segments):
+            segment_audio = audio[start:end]
+            offset_seconds = start / sample_rate
+
+            # Zero-pad segment to original window size, centering it
+            padded = np.zeros(window_samples, dtype=np.float32)
+            pad_offset = (window_samples - len(segment_audio)) // 2
+            padded[pad_offset:pad_offset + len(segment_audio)] = segment_audio
+
+            # Classify this segment (disable onset segmentation since we already segmented)
+            detections = self.detect(
+                padded,
+                sample_rate=sample_rate,
+                threshold=threshold,
+                use_onset_segmentation=False,
+            )
+
+            # Attach offset to each detection from this segment
+            for d in detections:
+                d.offset_seconds = offset_seconds
+                all_detections.append(d)
+
+            if detections:
+                logger.info(
+                    "  Segment %d (%.3fs): %s",
+                    seg_idx, offset_seconds,
+                    ", ".join(f"{d.syllable}({d.confidence:.4f})" for d in detections),
+                )
+            else:
+                logger.info("  Segment %d (%.3fs): no detection", seg_idx, offset_seconds)
+
+        # Sort by offset ascending
+        all_detections.sort(key=lambda d: d.offset_seconds)
+        return all_detections

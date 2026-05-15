@@ -1,0 +1,38 @@
+---
+id: 66
+title: Add onset visualization to frontend
+type: task
+status: closed
+priority: 3
+parent: 55
+blocked_by:
+- 59
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:03:08.280480566Z
+updated_at: 2026-05-15T05:23:03.232254516Z
+closed_at: 2026-05-15T05:23:03.232253541Z
+---
+
+Display detected onset markers in the game UI so the user can see when the system thinks a new syllable started. This provides feedback about the onset detection quality and helps with debugging.
+
+## Requirements
+- Show onset markers as subtle visual cues on the pitch bar (left side of screen)
+- Each onset appears as a brief flash or tick mark at the corresponding time
+- Reuse data from the `useOnsetDetection` hook
+- Markers should fade out after ~500ms
+- Optional: show onset count in a debug overlay when enabled
+
+## Files
+- `test-client/src/components/GameView.tsx` or new component
+- Integration with `test-client/src/hooks/useOnsetDetection.ts`
+
+## Dependencies
+- Depends on: #59 (useOnsetDetection hook must exist)
+
+---
+COMMENT
+2026-05-15T05:23:03.227993766Z
+author: quiet-nexus
+
+66

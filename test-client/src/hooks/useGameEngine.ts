@@ -11,6 +11,10 @@ export interface GameNote {
   /** Vertical position as percentage of game area height. */
   y: number;
   state: "sliding" | "hit" | "missed";
+  /** Captured audio segment for this note's time in the hit zone. */
+  audioSegment?: ArrayBuffer;
+  /** Whether audio capture has been started for this note. */
+  captureStarted?: boolean;
 }
 
 export interface Score {
@@ -45,6 +49,13 @@ export const TARGET_FREQUENCIES: Record<Syllable, number> = {
   ti: 246.94,
 };
 
+export interface UseGameEngineOptions {
+  /** Called when a note enters the hit zone to begin audio capture. */
+  startNoteCapture?: () => void;
+  /** Called when a note exits the hit zone; returns captured audio. */
+  stopNoteCapture?: () => ArrayBuffer | null;
+}
+
 export interface UseGameEngineReturn {
   notes: GameNote[];
   speed: number;
@@ -63,7 +74,7 @@ export interface UseGameEngineReturn {
 
 let nextNoteId = 1;
 
-export function useGameEngine(): UseGameEngineReturn {
+export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineReturn {
   const [notes, setNotes] = useState<GameNote[]>([]);
   const [speed, setSpeedState] = useState(DEFAULT_SPEED);
   const [score, setScore] = useState<Score>({ hits: 0, total: 0 });
@@ -77,6 +88,12 @@ export function useGameEngine(): UseGameEngineReturn {
   const sequenceIdxRef = useRef(0);
   const lastFrameTimeRef = useRef(0);
   const isRunningRef = useRef(false);
+
+  // Keep capture callbacks in refs so the game loop always sees latest
+  const startNoteCaptureRef = useRef(options?.startNoteCapture);
+  startNoteCaptureRef.current = options?.startNoteCapture;
+  const stopNoteCaptureRef = useRef(options?.stopNoteCapture);
+  stopNoteCaptureRef.current = options?.stopNoteCapture;
 
   const setSpeed = useCallback((s: number) => {
     const clamped = Math.max(MIN_SPEED, Math.min(MAX_SPEED, s));
@@ -184,9 +201,35 @@ export function useGameEngine(): UseGameEngineReturn {
           }
           continue;
         }
+
+        const prevX = note.x;
         note.x -= pxPerSec * dt;
+
+        // Hit zone entry: note just crossed into the zone from the right
+        const hitZoneRight = CROSSHAIR_X + HIT_ZONE_HALF;
+        const hitZoneLeft = CROSSHAIR_X - HIT_ZONE_HALF;
+        if (!note.captureStarted && prevX > hitZoneRight && note.x <= hitZoneRight) {
+          note.captureStarted = true;
+          startNoteCaptureRef.current?.();
+        }
+
+        // Hit zone exit: note just crossed out of the zone to the left
+        if (note.captureStarted && !note.audioSegment && prevX >= hitZoneLeft && note.x < hitZoneLeft) {
+          const segment = stopNoteCaptureRef.current?.() ?? null;
+          if (segment) {
+            note.audioSegment = segment;
+          }
+        }
+
         if (note.x < -5) {
           if (note.state === "sliding") {
+            // Ensure capture is stopped if note exits without hitting left boundary check above
+            if (note.captureStarted && !note.audioSegment) {
+              const segment = stopNoteCaptureRef.current?.() ?? null;
+              if (segment) {
+                note.audioSegment = segment;
+              }
+            }
             note.state = "missed";
             scoreRef.current = {
               hits: scoreRef.current.hits,

@@ -1,0 +1,36 @@
+---
+id: 64
+title: Make RecordingBuffer a fallback only
+type: task
+status: closed
+priority: 2
+parent: 55
+blocked_by:
+- 63
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:02:49.527812754Z
+updated_at: 2026-05-15T05:14:06.683898023Z
+closed_at: 2026-05-15T05:14:06.683897264Z
+---
+
+When per-note audio is provided by the frontend via the two-frame protocol, skip the rolling RecordingBuffer capture entirely. The RecordingBuffer remains active (still receives streaming audio) for backward compatibility with clients that don't send per-note audio.
+
+## Requirements
+- In the note_event handler: if `pending_note_audio` is consumed, do NOT also call `recording_buffer.capture()`
+- If no per-note audio is available (legacy clients), use `recording_buffer.capture()` as before
+- RecordingBuffer continues to receive streaming audio so it's always ready as a fallback
+- Add a log line distinguishing which path was taken: "Saved per-note audio (trimmed)" vs "Saved rolling buffer capture (fallback)"
+
+## Files
+- `lib-py/solfege_detector/server.py`
+
+## Dependencies
+- Depends on: #63 (per-note audio handling must be implemented first)
+
+---
+COMMENT
+2026-05-15T05:14:06.680416839Z
+author: quiet-nexus
+
+64

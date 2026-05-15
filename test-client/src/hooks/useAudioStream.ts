@@ -6,6 +6,10 @@ const CHUNK_INTERVAL_MS = 250;
 interface UseAudioStreamOptions {
   onChunk: (chunk: ArrayBuffer) => void;
   onVolume?: (rms: number) => void;
+  /** Called with each audio chunk during note capture for onset detection. */
+  onCaptureChunk?: (samples: Float32Array) => void;
+  /** Called with the captured PCM buffer to trim multi-onset audio. */
+  trimCapture?: (audioBuffer: ArrayBuffer) => ArrayBuffer;
 }
 
 interface UseAudioStreamReturn {
@@ -15,6 +19,8 @@ interface UseAudioStreamReturn {
   audioContext: AudioContext | null;
   sourceNode: MediaStreamAudioSourceNode | null;
   analyserNode: AnalyserNode | null;
+  startNoteCapture: () => void;
+  stopNoteCapture: () => ArrayBuffer | null;
 }
 
 /**
@@ -43,10 +49,18 @@ export function useAudioStream(
   onChunkRef.current = options.onChunk;
   const onVolumeRef = useRef(options.onVolume);
   onVolumeRef.current = options.onVolume;
+  const onCaptureChunkRef = useRef(options.onCaptureChunk);
+  onCaptureChunkRef.current = options.onCaptureChunk;
+  const trimCaptureRef = useRef(options.trimCapture);
+  trimCaptureRef.current = options.trimCapture;
 
   // Accumulation buffer for chunking at CHUNK_INTERVAL_MS
   const accumulatorRef = useRef<Float32Array[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Per-note capture: independent accumulator active only during hit zone
+  const noteCaptureActiveRef = useRef(false);
+  const noteCaptureBufferRef = useRef<Float32Array[]>([]);
 
   const stopRecording = useCallback(() => {
     if (timerRef.current !== null) {
@@ -106,7 +120,14 @@ export function useAudioStream(
     processor.onaudioprocess = (e: AudioProcessingEvent) => {
       const input = e.inputBuffer.getChannelData(0);
       // Copy since the buffer is reused
-      accumulatorRef.current.push(new Float32Array(input));
+      const copied = new Float32Array(input);
+      accumulatorRef.current.push(copied);
+
+      // Collect into per-note capture buffer if active
+      if (noteCaptureActiveRef.current) {
+        noteCaptureBufferRef.current.push(copied);
+        onCaptureChunkRef.current?.(copied);
+      }
 
       // Compute RMS for volume detection
       if (onVolumeRef.current) {
@@ -158,6 +179,53 @@ export function useAudioStream(
     setIsRecording(true);
   }, []);
 
+  const startNoteCapture = useCallback(() => {
+    noteCaptureBufferRef.current = [];
+    noteCaptureActiveRef.current = true;
+  }, []);
+
+  const stopNoteCapture = useCallback((): ArrayBuffer | null => {
+    if (!noteCaptureActiveRef.current) return null;
+    noteCaptureActiveRef.current = false;
+
+    const chunks = noteCaptureBufferRef.current;
+    noteCaptureBufferRef.current = [];
+    if (chunks.length === 0) return null;
+
+    // Concatenate captured Float32 samples
+    const totalLen = chunks.reduce((sum, c) => sum + c.length, 0);
+    const merged = new Float32Array(totalLen);
+    let offset = 0;
+    for (const c of chunks) {
+      merged.set(c, offset);
+      offset += c.length;
+    }
+
+    // Resample if device rate differs
+    let samples = merged;
+    const ctx = audioContextRef.current;
+    if (ctx && ctx.sampleRate !== TARGET_SAMPLE_RATE) {
+      const ratio = TARGET_SAMPLE_RATE / ctx.sampleRate;
+      const newLen = Math.round(merged.length * ratio);
+      const resampled = new Float32Array(newLen);
+      for (let i = 0; i < newLen; i++) {
+        const srcIdx = i / ratio;
+        const lo = Math.floor(srcIdx);
+        const hi = Math.min(lo + 1, merged.length - 1);
+        const frac = srcIdx - lo;
+        resampled[i] = merged[lo] * (1 - frac) + merged[hi] * frac;
+      }
+      samples = resampled;
+    }
+
+    let pcmBuffer = float32ToInt16(samples);
+    // Apply onset-based trimming if multiple onsets were detected
+    if (trimCaptureRef.current) {
+      pcmBuffer = trimCaptureRef.current(pcmBuffer);
+    }
+    return pcmBuffer;
+  }, []);
+
   return {
     startRecording,
     stopRecording,
@@ -165,5 +233,7 @@ export function useAudioStream(
     audioContext: audioContextRef.current,
     sourceNode: sourceRef.current,
     analyserNode: analyserRef.current,
+    startNoteCapture,
+    stopNoteCapture,
   };
 }

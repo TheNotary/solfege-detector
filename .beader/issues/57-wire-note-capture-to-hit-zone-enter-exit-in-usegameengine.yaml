@@ -1,0 +1,38 @@
+---
+id: 57
+title: Wire note capture to hit zone enter/exit in useGameEngine
+type: task
+status: closed
+priority: 1
+parent: 55
+blocked_by:
+- 56
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:01:32.599817847Z
+updated_at: 2026-05-15T05:10:26.932451368Z
+closed_at: 2026-05-15T05:10:26.932450718Z
+---
+
+When a note enters the hit zone (x crosses from 26% inward to 14%), call `startNoteCapture()`. When it exits the hit zone, call `stopNoteCapture()` and attach the returned audio segment to the note object.
+
+## Requirements
+- Add `audioSegment?: ArrayBuffer` field to the Note type
+- Detect hit zone entry (x <= 26% from the right side) and exit (x <= 14% continuing left)
+- Call startNoteCapture on entry, stopNoteCapture on exit
+- Attach resulting audio buffer to note.audioSegment
+- At 120 BPM the hit zone window is ~0.33s; at 30 BPM ~1.3s — adapts naturally to tempo
+- If a note exits without triggering capture (e.g., streaming wasn't active), handle gracefully
+
+## Files
+- `test-client/src/hooks/useGameEngine.ts`
+
+## Dependencies
+- Depends on: #56 (per-note audio accumulator API must exist)
+
+---
+COMMENT
+2026-05-15T05:10:26.929519110Z
+author: quiet-nexus
+
+57

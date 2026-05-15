@@ -1,0 +1,39 @@
+---
+id: 59
+title: Add frontend onset detection for multi-note overlap guard
+type: task
+status: closed
+priority: 2
+parent: 55
+blocked_by:
+- 56
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:01:52.102044040Z
+updated_at: 2026-05-15T05:18:40.755055442Z
+closed_at: 2026-05-15T05:18:40.755054684Z
+---
+
+Add an energy-envelope onset detector that marks syllable boundaries using RMS spikes from the existing AnalyserNode. When multiple onsets are detected within a single note's capture window, trim the audio to keep only the segment around the onset closest to the crosshair center (x=20%).
+
+## Requirements
+- New hook: `useOnsetDetection` consuming the shared AnalyserNode's time-domain data
+- Detect onsets via RMS energy derivative (spike detection)
+- Configurable: `ONSET_THRESHOLD` (RMS derivative threshold), `MIN_ONSET_GAP_MS` (debounce, default ~100ms)
+- Expose `getOnsets(): Array<{timeMs: number, rmsEnergy: number}>` for the current capture window
+- Provide a `trimToNearestOnset(audioBuffer, targetTimeMs): ArrayBuffer` utility
+- Integrate with stopNoteCapture flow: if multiple onsets detected, trim before returning
+
+## Files
+- `test-client/src/hooks/useOnsetDetection.ts` (new)
+- Integration point: `test-client/src/hooks/useAudioStream.ts` (stopNoteCapture calls trim)
+
+## Dependencies
+- Depends on: #56 (needs the per-note capture accumulator to trim)
+
+---
+COMMENT
+2026-05-15T05:18:40.751775325Z
+author: quiet-nexus
+
+59

@@ -1,0 +1,43 @@
+---
+id: 60
+title: Add onset_segmenter module (librosa-based)
+type: task
+status: closed
+priority: 1
+parent: 55
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:02:05.561080296Z
+updated_at: 2026-05-15T05:09:07.456126196Z
+closed_at: 2026-05-15T05:09:07.456125329Z
+---
+
+Create a new module that uses librosa's onset detection to find syllable boundaries within an audio window. This enables both the CLAP detector and the recording pipeline to isolate individual syllables from multi-syllable audio.
+
+## Requirements
+- New file: `lib-py/solfege_detector/onset_segmenter.py`
+- Function: `segment_onsets(audio: np.ndarray, sr: int, min_gap_seconds: float = 0.1) -> List[Tuple[int, int]]`
+  - Returns list of (start_sample, end_sample) pairs for each detected note region
+  - Uses `librosa.onset.onset_detect(y=audio, sr=sr, backtrack=True)` with tuned parameters for vocal onsets
+  - `min_gap_seconds` controls minimum separation between onsets (debounce)
+- Handle edge cases:
+  - No onsets detected: return single segment spanning entire audio
+  - Single onset: return segment from onset to end of audio
+  - Segment boundaries: each segment ends where the next one begins (or at audio end)
+- Verify `librosa` is available in pyproject.toml dependencies (likely transitive via msclap)
+
+## Files
+- `lib-py/solfege_detector/onset_segmenter.py` (new)
+- `lib-py/pyproject.toml` (verify librosa dep)
+
+## Acceptance Criteria
+- Given synthetic audio with 3 solfege syllables at known offsets, segment_onsets returns 3 segments within ±50ms of expected boundaries
+- Given single-syllable audio, returns 1 segment
+- Given silence, returns 1 segment (the full window)
+
+---
+COMMENT
+2026-05-15T05:09:07.451314462Z
+author: quiet-nexus
+
+60

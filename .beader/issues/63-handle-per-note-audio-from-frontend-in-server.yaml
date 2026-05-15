@@ -1,0 +1,47 @@
+---
+id: 63
+title: Handle per-note audio from frontend in server
+type: task
+status: closed
+priority: 1
+parent: 55
+blocked_by:
+- 60
+- 58
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:02:39.917292768Z
+updated_at: 2026-05-15T05:13:57.950091886Z
+closed_at: 2026-05-15T05:13:57.950091236Z
+---
+
+Update the WebSocket handler to parse the new two-frame protocol (binary audio frame followed by JSON note_event with correlationId). When per-note audio is provided by the frontend, use it for recording instead of the rolling buffer. Apply onset segmentation to trim further if needed.
+
+## Requirements
+- Parse new protocol: when a binary frame arrives outside of the normal audio streaming context (identified by a subsequent JSON frame with `correlationId`), stash it as `pending_note_audio`
+- When `note_event` JSON arrives with a `correlationId`: consume `pending_note_audio` as the note's audio
+- Apply `segment_onsets()` to the per-note audio to extract the tightest single-syllable clip
+- Save the trimmed audio (not the full capture window) to `recorded_notes/`
+- If no `correlationId` or no pending audio: fall back to existing `recording_buffer.capture()` behavior
+- Handle protocol errors gracefully (e.g., JSON arrives without preceding binary frame, binary frame without subsequent JSON)
+
+## Protocol Handling
+```
+Binary frame received → stash in pending_note_audio
+JSON "note_event" with correlationId → consume pending_note_audio, onset-trim, save
+JSON "note_event" without correlationId → use recording_buffer.capture() (legacy)
+```
+
+## Files
+- `lib-py/solfege_detector/server.py`
+
+## Dependencies
+- Depends on: #60 (onset_segmenter for trimming)
+- Depends on: #58 (frontend must be sending the two-frame protocol)
+
+---
+COMMENT
+2026-05-15T05:13:57.947032336Z
+author: quiet-nexus
+
+63

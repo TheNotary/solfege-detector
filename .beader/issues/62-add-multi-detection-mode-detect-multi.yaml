@@ -1,0 +1,45 @@
+---
+id: 62
+title: Add multi-detection mode (detect_multi)
+type: task
+status: closed
+priority: 2
+parent: 55
+blocked_by:
+- 61
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:02:28.406048716Z
+updated_at: 2026-05-15T05:16:28.507790145Z
+closed_at: 2026-05-15T05:16:28.507789279Z
+---
+
+When the 1.5s window contains multiple onsets, optionally classify each segment independently and return multiple Detection objects with temporal offsets. This enables the frontend to know which syllable was detected at which point in time.
+
+## Requirements
+- New method: `detect_multi(window: np.ndarray, sr: int, threshold: float) -> List[Detection]`
+- Each Detection includes an `offset_seconds: float` field indicating when the syllable started within the window
+- Calls `segment_onsets()` to find boundaries, then runs CLAP on each segment independently
+- Each segment is zero-padded to 1.5s before CLAP classification (same strategy as detect())
+- Returns detections sorted by offset_seconds ascending
+- Server sends multiple "detection" messages per window when multi-mode is active
+- If only 1 segment found, behaves identically to existing `detect()` but includes offset_seconds=0
+
+## Performance Consideration
+- Multiple CLAP inferences per window (~50-150ms each) will increase latency
+- Consider: parallel inference via asyncio.gather if needed (deferred)
+- Document that multi-mode is optional and adds latency proportional to onset count
+
+## Files
+- `lib-py/solfege_detector/detector.py`
+- `lib-py/solfege_detector/server.py` (wire multi-detection responses)
+
+## Dependencies
+- Depends on: #61 (single-segment onset integration must work first)
+
+---
+COMMENT
+2026-05-15T05:16:28.504230637Z
+author: quiet-nexus
+
+62

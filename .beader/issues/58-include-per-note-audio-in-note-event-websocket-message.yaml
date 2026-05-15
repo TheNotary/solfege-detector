@@ -1,0 +1,43 @@
+---
+id: 58
+title: Include per-note audio in note_event WebSocket message
+type: task
+status: closed
+priority: 1
+parent: 55
+blocked_by:
+- 57
+assignees:
+- quiet-nexus
+created_at: 2026-05-15T05:01:42.464348739Z
+updated_at: 2026-05-15T05:12:30.160717979Z
+closed_at: 2026-05-15T05:12:30.160717329Z
+---
+
+Modify `sendNoteEvent()` to transmit the captured per-note audio segment alongside the existing JSON metadata. Implement a two-frame WebSocket protocol: a binary frame containing Int16 PCM audio is sent immediately followed by a JSON frame containing metadata with a correlation ID linking the two.
+
+## Requirements
+- Add optional `audioSegment?: ArrayBuffer` parameter to `sendNoteEvent(syllable, hit, pitchData, audioSegment?)`
+- When audioSegment is provided: send binary frame first, then JSON frame with a `correlationId` field
+- When audioSegment is absent: send only the JSON frame (backward compatible)
+- Generate a unique correlationId per note event (UUID or timestamp-based)
+- JSON frame includes: syllable, hit, pitchData, correlationId
+
+## Protocol
+```
+Frame 1 (binary): Int16 PCM audio bytes
+Frame 2 (text/JSON): { "type": "note_event", "correlationId": "...", "syllable": "do", "hit": true, ... }
+```
+
+## Files
+- `test-client/src/hooks/useWebSocket.ts`
+
+## Dependencies
+- Depends on: #57 (audio segment must be attached to note before sending)
+
+---
+COMMENT
+2026-05-15T05:12:30.157133879Z
+author: quiet-nexus
+
+58

@@ -10,6 +10,8 @@ import { useAudioQuality } from "../hooks/useAudioQuality";
 import { usePitchDetection } from "../hooks/usePitchDetection";
 import { useSmoothedPitch } from "../hooks/useSmoothedPitch";
 import { useDrone } from "../hooks/useDrone";
+import { useOnsetDetection } from "../hooks/useOnsetDetection";
+import OnsetFlash from "../components/OnsetFlash";
 import AppConfig from "../AppConfig";
 
 const SOLFEGE_LABELS = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
@@ -24,6 +26,44 @@ export default function GameView(_props: GameViewProps) {
 
   const { send, sendNoteEvent, isConnected } = useWebSocket(AppConfig.SOCKET_URL);
   const { volume, isSounding, onVolume } = useVolumeDetection();
+
+  const [onsetCount, setOnsetCount] = useState(0);
+  const onOnset = useCallback(() => {
+    setOnsetCount((c) => c + 1);
+  }, []);
+  const { resetOnsets: resetOnsetsRaw, feedSamples, trimToNearestOnset } = useOnsetDetection({ onOnset });
+
+  const onChunk = useCallback(
+    (chunk: ArrayBuffer) => {
+      send(chunk);
+    },
+    [send]
+  );
+
+  // Trim capture to the onset nearest the midpoint of the capture window
+  const trimCapture = useCallback(
+    (audioBuffer: ArrayBuffer): ArrayBuffer => {
+      const durationMs = (audioBuffer.byteLength / 2) / 44_100 * 1000;
+      return trimToNearestOnset(audioBuffer, durationMs / 2);
+    },
+    [trimToNearestOnset]
+  );
+
+  const { startRecording, stopRecording, isRecording, analyserNode, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
+    useAudioStream({
+      onChunk,
+      onVolume,
+      onCaptureChunk: feedSamples,
+      trimCapture,
+    });
+
+  // Wrap startNoteCapture to also reset onset detector
+  const startNoteCapture = useCallback(() => {
+    resetOnsetsRaw();
+    setOnsetCount(0);
+    startNoteCaptureRaw();
+  }, [resetOnsetsRaw, startNoteCaptureRaw]);
+
   const {
     notes,
     speed,
@@ -33,20 +73,7 @@ export default function GameView(_props: GameViewProps) {
     startGame,
     stopGame,
     isRunning,
-  } = useGameEngine();
-
-  const onChunk = useCallback(
-    (chunk: ArrayBuffer) => {
-      send(chunk);
-    },
-    [send]
-  );
-
-  const { startRecording, stopRecording, isRecording, analyserNode, audioContext } =
-    useAudioStream({
-      onChunk,
-      onVolume,
-    });
+  } = useGameEngine({ startNoteCapture, stopNoteCapture });
 
   const { isQualitySample } = useAudioQuality(analyserNode);
   const { pitchHz } = usePitchDetection(analyserNode);
@@ -69,10 +96,17 @@ export default function GameView(_props: GameViewProps) {
     if (!isRunning || !isRecording) return;
     const hit = checkHit(isSounding && isQualitySample);
     if (hit) {
-      sendNoteEvent(hit.syllable, true, {
-        fft_pitch_hz: pitchHz,
-        target_frequency_hz: hit.targetFrequencyHz,
-      });
+      // Find the note to get its audio segment
+      const hitNote = notes.find((n) => n.id === hit.noteId);
+      sendNoteEvent(
+        hit.syllable,
+        true,
+        {
+          fft_pitch_hz: pitchHz,
+          target_frequency_hz: hit.targetFrequencyHz,
+        },
+        hitNote?.audioSegment ?? null
+      );
       sentNoteIds.current.add(hit.noteId);
     }
   });
@@ -84,10 +118,15 @@ export default function GameView(_props: GameViewProps) {
         note.state === "missed" &&
         !sentNoteIds.current.has(note.id)
       ) {
-        sendNoteEvent(note.syllable, false, {
-          fft_pitch_hz: pitchHz,
-          target_frequency_hz: TARGET_FREQUENCIES[note.syllable],
-        });
+        sendNoteEvent(
+          note.syllable,
+          false,
+          {
+            fft_pitch_hz: pitchHz,
+            target_frequency_hz: TARGET_FREQUENCIES[note.syllable],
+          },
+          note.audioSegment ?? null
+        );
         sentNoteIds.current.add(note.id);
       }
     }
@@ -198,6 +237,9 @@ export default function GameView(_props: GameViewProps) {
 
       {/* Pitch indicator bar */}
       <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} />
+
+      {/* Onset flash indicator */}
+      <OnsetFlash onsetCount={onsetCount} active={isRunning} />
 
       {/* Notes */}
       {notes.map((note) => (
