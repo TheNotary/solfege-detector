@@ -1,6 +1,6 @@
 # test-client
 
-TODO: Describe project
+React + TypeScript rhythm-game UI for the solfege detector. Notes scroll across a staff; the player sings each syllable as it crosses the crosshair. The client captures microphone audio, runs client-side onset detection, and streams per-note audio to the backend via a two-frame WebSocket protocol (binary PCM + JSON `note_event`).
 
 ### Starting the Server
 

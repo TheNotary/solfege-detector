@@ -45,7 +45,28 @@ solfege-detector
 from solfege_detector.detector import SolfegeDetector
 
 detector = SolfegeDetector(use_cuda=False)
+
+# Basic detection (onset segmentation enabled by default)
 detections = detector.detect(audio_array, sample_rate=44100, threshold=0.5)
 for d in detections:
     print(f"{d.syllable}: {d.confidence:.4f}")
+
+# Classify every onset segment independently
+detections = detector.detect_multi(audio_array, sample_rate=44100, threshold=0.5)
+for d in detections:
+    print(f"{d.syllable}: {d.confidence:.4f} @ {d.offset_seconds:.3f}s")
+
+# Disable onset segmentation (classify raw window)
+detections = detector.detect(audio_array, threshold=0.5, use_onset_segmentation=False)
+```
+
+### Onset Segmenter
+
+The `onset_segmenter` module (librosa-based) splits an audio array into per-syllable regions:
+
+```python
+from solfege_detector.onset_segmenter import segment_onsets
+
+segments = segment_onsets(audio, sr=44100, onset_delta=0.07, min_gap_seconds=0.2)
+# Returns [(start_sample, end_sample), ...]
 ```

@@ -16,9 +16,10 @@ recorded_notes/     Captured .wav + .metadata training data (gitignored)
 ### How It Works
 
 1. **Client** captures microphone audio as PCM (16-bit int, mono, 44100 Hz) and streams it over WebSocket
-2. **Server** buffers audio in a 1.5-second sliding window with 0.25-second hop
-3. **CLAP model** (msclap v2023) runs zero-shot classification asynchronously (via `asyncio.to_thread` with frame-skipping) against solfege prompts
-4. **Detection events** (syllable + confidence) are pushed back to the client in real-time
+2. **Server** buffers audio in a 1.5-second sliding window with 0.25-second hop; also accepts per-note audio via a two-frame WebSocket protocol (binary PCM frame followed by a JSON `note_event` frame with `correlationId`)
+3. **Onset segmentation** (librosa-based) isolates individual syllables within a window before classification — configurable via `segment_mode` (`latest`, `multi`, `off`)
+4. **CLAP model** (msclap v2023) runs zero-shot classification asynchronously (via `asyncio.to_thread` with frame-skipping) against solfege prompts
+5. **Detection events** (syllable + confidence + optional `offset_seconds`) are pushed back to the client in real-time
 
 ### Game Mode
 
@@ -27,8 +28,10 @@ The test-client presents a rhythm-game interface:
 - **Sliding notes** ride an invisible staff from right to left, following an ascending solfege scale (do→re→mi→fa→sol→la→ti)
 - **Crosshair** marks when to sing — notes in the zone light up when the player makes sound
 - **Confetti burst** fires when the microphone detects any sound while a note is in the crosshair (client-side volume detection for instant feedback)
+- **Onset flash** — a visual pulse on the crosshair when the client-side energy-envelope onset detector fires
+- **Per-note audio capture** — the client accumulates audio while a note is in the hit zone and sends it to the server via the two-frame WebSocket protocol
 - **Speed slider** controls note spawn rate (10–120 BPM)
-- **Backend recording** captures ~3 seconds of audio around each note event, saving `.wav` + `.metadata` files to `recorded_notes/` for acoustic model training
+- **Backend recording** — per-note audio (onset-trimmed) is the primary capture path; the rolling recording buffer (~3 seconds around each event) is used as a fallback. Both save `.wav` + `.metadata` files to `recorded_notes/`
 
 ## Quick Start
 
@@ -95,6 +98,7 @@ cd test-client && pnpm install && npx tsc --noEmit
 
 - **Model**: Microsoft CLAP v2023 (zero-shot, no fine-tuning)
 - **Audio**: 1.5-second window, 0.25-second hop, 44100 Hz, 64 mel bins
+- **Onset segmentation**: librosa onset detection with configurable sensitivity (`onset_sensitivity`) and debounce (`onset_min_gap_ms`); segment modes: `latest` (classify last onset), `multi` (classify all onsets), `off`
 - **Prompts**: "someone singing the solfege syllable {X}" + negative classes (noise, talking, silence)
 - **Environment**: Set `LOG_LEVEL` env var to control verbosity (default: `info`)
 - **Platform**: Python 3.12, CPU inference (torch CPU), aarch64/x86_64
