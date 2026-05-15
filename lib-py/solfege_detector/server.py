@@ -1,12 +1,16 @@
 """FastAPI WebSocket server for real-time solfege syllable detection."""
 
 import asyncio
+import io
 import json
 import logging
 import re
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+import numpy as np
+import soundfile as sf
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +19,7 @@ from solfege_detector.audio_buffer import AudioBuffer
 from solfege_detector.detector import SolfegeDetector
 from solfege_detector.onset_segmenter import segment_onsets
 from solfege_detector.recorder import RecordingBuffer
+from solfege_detector.silence_trimmer import trim_silence
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +191,6 @@ async def websocket_endpoint(ws: WebSocket):
                                 pending_note_audio = None
 
                                 # Convert PCM bytes to float32 for onset trimming
-                                import numpy as np
                                 pcm_int16 = np.frombuffer(note_raw, dtype=np.int16)
                                 note_float = pcm_int16.astype(np.float32) / 32768.0
 
@@ -204,9 +208,20 @@ async def websocket_endpoint(ws: WebSocket):
                                     logger.info("Per-note audio: single segment (%.3fs), no trim needed",
                                                len(note_float) / buffer.sample_rate)
 
+                                # Trim leading/trailing silence around the syllable
+                                pre_trim_len = len(note_float)
+                                note_float = trim_silence(note_float, buffer.sample_rate)
+                                if len(note_float) == 0:
+                                    logger.warning("Per-note audio is entirely silent after trim — skipping save")
+                                    continue
+                                if len(note_float) < pre_trim_len:
+                                    logger.info(
+                                        "Silence trim: %.3fs → %.3fs",
+                                        pre_trim_len / buffer.sample_rate,
+                                        len(note_float) / buffer.sample_rate,
+                                    )
+
                                 # Convert back to WAV bytes
-                                import io
-                                import soundfile as sf
                                 wav_buf = io.BytesIO()
                                 sf.write(wav_buf, note_float, buffer.sample_rate, format="WAV", subtype="PCM_16")
                                 wav_bytes = wav_buf.getvalue()
@@ -229,6 +244,24 @@ async def websocket_endpoint(ws: WebSocket):
                                     )
                                 wav_bytes, metadata = recording_buffer.capture(syllable, hit)
                                 metadata["source"] = "rolling_buffer"
+
+                                # Apply silence trimming to rolling buffer capture too
+                                rb_audio, rb_sr = sf.read(io.BytesIO(wav_bytes), dtype="float32")
+                                rb_trimmed = trim_silence(rb_audio, rb_sr)
+                                if len(rb_trimmed) == 0:
+                                    logger.warning("Rolling buffer capture is entirely silent — skipping save")
+                                    continue
+                                if len(rb_trimmed) < len(rb_audio):
+                                    logger.info(
+                                        "Rolling buffer silence trim: %.3fs → %.3fs",
+                                        len(rb_audio) / rb_sr,
+                                        len(rb_trimmed) / rb_sr,
+                                    )
+                                    wav_buf = io.BytesIO()
+                                    sf.write(wav_buf, rb_trimmed, rb_sr, format="WAV", subtype="PCM_16")
+                                    wav_bytes = wav_buf.getvalue()
+                                    metadata["duration_seconds"] = round(len(rb_trimmed) / rb_sr, 3)
+
                                 logger.info("Saved rolling buffer capture (fallback)")
 
                             # Add client IP and pitch metadata
