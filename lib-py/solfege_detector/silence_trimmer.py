@@ -12,7 +12,7 @@ DEFAULT_SILENCE_THRESHOLD_DB = -40.0
 # Size of the RMS analysis window in seconds.
 DEFAULT_FRAME_SECONDS = 0.01
 # Extra padding (in seconds) to keep on each side of the voiced region.
-DEFAULT_PAD_SECONDS = 0.05
+DEFAULT_PAD_SECONDS = 0.15
 # Minimum silence gap (in seconds) to split voiced segments.
 DEFAULT_MIN_SILENCE_SECONDS = 0.06
 
@@ -196,6 +196,13 @@ def split_on_silence(
         start_s = max(0, seg_start_frame * frame_len - pad_samples)
         end_s = min(len(audio), seg_end_frame * frame_len + pad_samples)
         segments.append((start_s, end_s))
+
+    # Clamp overlapping segments: if padding causes overlap, split at midpoint
+    for i in range(len(segments) - 1):
+        if segments[i][1] > segments[i + 1][0]:
+            mid = (segments[i][1] + segments[i + 1][0]) // 2
+            segments[i] = (segments[i][0], mid)
+            segments[i + 1] = (mid, segments[i + 1][1])
 
     logger.debug(
         "split_on_silence: %d segment(s) from %.3fs audio",
