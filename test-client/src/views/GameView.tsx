@@ -96,16 +96,8 @@ export default function GameView(_props: GameViewProps) {
     if (!isRunning || !isRecording) return;
     const hit = checkHit(isSounding && isQualitySample);
     if (hit) {
-      // Stop capture NOW to grab the audio accumulated so far.
-      // The note is still in the hit zone — stopNoteCapture hasn't been
-      // called by the game loop yet (that happens at zone exit).
-      // Setting audioSegment here prevents the game loop from calling
-      // stopNoteCapture again (it checks !note.audioSegment).
-      const segment = stopNoteCapture?.() ?? null;
+      // Find the note to get its audio segment
       const hitNote = notes.find((n) => n.id === hit.noteId);
-      if (hitNote && segment) {
-        hitNote.audioSegment = segment;
-      }
       sendNoteEvent(
         hit.syllable,
         true,
@@ -113,7 +105,7 @@ export default function GameView(_props: GameViewProps) {
           fft_pitch_hz: pitchHz,
           target_frequency_hz: hit.targetFrequencyHz,
         },
-        segment
+        hitNote?.audioSegment ?? null
       );
       sentNoteIds.current.add(hit.noteId);
     }

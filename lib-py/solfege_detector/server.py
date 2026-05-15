@@ -249,16 +249,18 @@ async def websocket_endpoint(ws: WebSocket):
                                 wav_bytes, metadata = recording_buffer.capture(syllable, hit)
                                 metadata["source"] = "rolling_buffer"
 
-                                # Split on silence and pick the LAST (most recent) segment.
-                                # The rolling buffer contains the most recent ~3s; the
-                                # syllable the user just sang is at the END, not center.
+                                # Split on silence and pick center segment
                                 rb_audio, rb_sr = sf.read(io.BytesIO(wav_bytes), dtype="float32")
                                 rb_segments = split_on_silence(rb_audio, rb_sr)
                                 if len(rb_segments) == 0:
                                     logger.warning("Rolling buffer capture is entirely silent — skipping save")
                                     continue
-                                s, e = rb_segments[-1]  # most recent voiced segment
-                                rb_audio = rb_audio[s:e]
+                                if len(rb_segments) > 1:
+                                    s, e = pick_center_segment(rb_segments, len(rb_audio))
+                                    rb_audio = rb_audio[s:e]
+                                else:
+                                    s, e = rb_segments[0]
+                                    rb_audio = rb_audio[s:e]
                                 wav_buf = io.BytesIO()
                                 sf.write(wav_buf, rb_audio, rb_sr, format="WAV", subtype="PCM_16")
                                 wav_bytes = wav_buf.getvalue()
