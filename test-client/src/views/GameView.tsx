@@ -113,7 +113,7 @@ export default function GameView(_props: GameViewProps) {
       onCaptureChunkFiltered: feedSamples,
       trimCapture,
       referenceNode,
-      aecEnabled: true,
+      aecEnabled: settings.feedbackCancellation,
       audioInputLatencyMs: settings.audioLatencyMs,
     });
 

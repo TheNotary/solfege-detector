@@ -2,16 +2,16 @@
 id: 122
 title: 'Phase 4: Switch display + hit-zone consumers to filtered signal'
 type: task
-status: in_progress
+status: closed
 priority: 2
 parent: 118
 blocked_by:
 - 121
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-17T23:30:45.901817089Z
-updated_at: 2026-05-17T23:41:32.744425155Z
+updated_at: 2026-05-17T23:42:33.922097717Z
+closed_at: 2026-05-17T23:42:33.922096947Z
 ---
 
 Repoint the on-screen waveform and hit-zone visual hooks at the filtered mic path. Keep pitch detection on the raw path.
@@ -28,3 +28,10 @@ Acceptance:
 - With drone on and no singing, `WaveformCrosshair` sits near the noise gate.
 - Sung syllables still drive the cyan trace and trigger in-zone confetti.
 - Pitch readouts are unchanged vs. today.
+
+---
+COMMENT
+2026-05-17T23:42:33.917377067Z
+author: witty-falcon
+
+Implemented in 1e592d5. WaveformCrosshair and useWaveformDisplacement now consume displayAnalyserNode = filteredAnalyserNode ?? analyserNode. useVolumeDetection and useOnsetDetection are wired to onVolumeFiltered/onCaptureChunkFiltered when the worklet is live, with raw fallbacks when it isn't. usePitchDetection/useSmoothedPitch untouched (still raw). Per-note capture buffer untouched (built from raw scriptProcessor inside useAudioStream). Build + 12/12 tests pass.

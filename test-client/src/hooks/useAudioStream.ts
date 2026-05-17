@@ -101,6 +101,16 @@ export function useAudioStream(
   const referenceNode = options.referenceNode ?? null;
   const aecEnabled = options.aecEnabled !== false;
 
+  // Push latency updates to a live AEC node so calibration changes re-align
+  // the worklet's delay ring without forcing a full rebuild.
+  useEffect(() => {
+    const node = aecNodeRef.current;
+    if (!node) return;
+    const ms = options.audioInputLatencyMs;
+    if (typeof ms !== "number" || !isFinite(ms)) return;
+    node.port.postMessage({ type: "setLatency", ms });
+  }, [options.audioInputLatencyMs]);
+
   // Accumulation buffer for chunking at CHUNK_INTERVAL_MS
   const accumulatorRef = useRef<Float32Array[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);

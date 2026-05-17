@@ -111,6 +111,22 @@ export default function ConfigView() {
           </label>
         </div>
 
+        {/* Feedback cancellation toggle */}
+        <div className="config-field">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={draft.feedbackCancellation}
+              onChange={(e) => set("feedbackCancellation", e.target.checked)}
+            />
+            Cancel drone/metronome bleed from waveform
+          </label>
+          <small className="field-help">
+            Only affects the on-screen waveform and hit-zone visual feedback.
+            The audio captured for training is always recorded raw.
+          </small>
+        </div>
+
         {/* Actions */}
         <div className="config-actions">
           <button className="save-btn" onClick={handleSave}>

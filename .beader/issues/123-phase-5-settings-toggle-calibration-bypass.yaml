@@ -2,13 +2,16 @@
 id: 123
 title: 'Phase 5: Settings toggle + calibration bypass'
 type: task
-status: todo
+status: in_progress
 priority: 2
 parent: 118
 blocked_by:
 - 122
+claimed_by: witty-falcon
+assignees:
+- witty-falcon
 created_at: 2026-05-17T23:31:06.832411521Z
-updated_at: 2026-05-17T23:31:10.961491182Z
+updated_at: 2026-05-17T23:42:47.714028675Z
 ---
 
 Expose user-facing control over the feedback canceller and ensure it doesn't corrupt latency calibration.

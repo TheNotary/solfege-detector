@@ -12,6 +12,13 @@ export interface GameSettings {
   metronomeEnabled: boolean;
   metronomeVolume: number;
   metronomeOffsetMs: number;
+  /**
+   * When true, the on-screen waveform and hit-zone visual feedback paths
+   * subtract an estimate of the drone+metronome bleed via an adaptive AEC
+   * worklet. The captured training audio sent to the backend stays raw
+   * either way. Defaults to true.
+   */
+  feedbackCancellation: boolean;
 }
 
 const STORAGE_KEY = "solfege-settings";
@@ -28,6 +35,7 @@ const DEFAULTS: GameSettings = {
   metronomeEnabled: true,
   metronomeVolume: 0.25,
   metronomeOffsetMs: 0,
+  feedbackCancellation: true,
 };
 
 // ── Singleton store so every hook instance shares the same snapshot ──
