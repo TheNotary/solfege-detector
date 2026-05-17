@@ -170,16 +170,33 @@ export default function GameView(_props: GameViewProps) {
   const waveformDisplacement = useWaveformDisplacement(analyserNode, isRecording);
   void waveformDisplacement; // used by WaveformCrosshair visually
 
+  // Debug hit zone geometry (centerPct, halfPct)
+  const [debugHitZone, setDebugHitZone] = useState<{ centerPct: number; halfPct: number } | null>(null);
+
   // Check for hits every frame when running.
   // The hit zone matches the visual crosshair zone (160px wide = 80px each side).
   useEffect(() => {
-    if (!isRunning || !isRecording) return;
+    if (!isRunning || !isRecording) {
+      setDebugHitZone(null);
+      return;
+    }
 
     // Convert the fixed crosshair-zone visual width to a % of container
     const containerWidth = containerRef.current?.clientWidth ?? 1;
     const crosshairHalfPx = 80; // half of the 160px crosshair-zone element
     const visualHalfPct = (crosshairHalfPx / containerWidth) * 100;
     const effectiveHalf = Math.min(visualHalfPct, HIT_ZONE_HALF);
+
+    // Compute latency-offset center (mirrors checkHit logic)
+    const bpm = speed;
+    const spawnInterval = 60 / bpm;
+    const travelTime = spawnInterval * 3;
+    const pctPerMs = 110 / (travelTime * 1000);
+    const latencyMs = settings.audioLatencyMs + settings.displayLatencyMs;
+    const offsetPct = latencyMs * pctPerMs;
+    const effectiveCenter = CROSSHAIR_X + offsetPct;
+
+    setDebugHitZone({ centerPct: effectiveCenter, halfPct: effectiveHalf });
 
     const hit = checkHit(isSounding && isQualitySample, effectiveHalf);
     if (hit) {
@@ -356,6 +373,19 @@ export default function GameView(_props: GameViewProps) {
           transform: "translateX(-50%)",
         }}
       />
+
+      {/* Debug: actual hit zone overlay */}
+      {showDebug && debugHitZone && (
+        <div
+          className="debug-hit-zone"
+          style={{
+            left: `${debugHitZone.centerPct - debugHitZone.halfPct}%`,
+            width: `${debugHitZone.halfPct * 2}%`,
+          }}
+        >
+          <div className="debug-hit-zone-center" style={{ left: "50%" }} />
+        </div>
+      )}
 
       {/* Pitch indicator bar */}
       <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} notePoints={notePoints} />
