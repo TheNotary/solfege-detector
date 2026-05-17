@@ -2,13 +2,16 @@
 id: 108
 title: Flip purple latency-offset band to LEFT side of debug zone in GameView
 type: bug
-status: todo
+status: in_progress
 priority: 1
 parent: 106
 blocked_by:
 - 107
+claimed_by: snappy-spark
+assignees:
+- snappy-spark
 created_at: 2026-05-17T17:24:00.143617358Z
-updated_at: 2026-05-17T17:24:44.797910058Z
+updated_at: 2026-05-17T17:26:02.109608269Z
 ---
 
 In `test-client/src/views/GameView.tsx` (~lines 378-388), the `.debug-latency-offset` sub-band currently renders on the RIGHT side of the debug hit-zone (because latency was incorrectly shifting the zone right).

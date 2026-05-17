@@ -383,8 +383,8 @@ export default function GameView(_props: GameViewProps) {
             <div
               className="debug-latency-offset"
               style={{
-                left: `${((debugHitZone.halfPct - debugHitZone.offsetPct) / (debugHitZone.halfPct * 2)) * 100}%`,
-                width: `${(debugHitZone.offsetPct / (debugHitZone.halfPct * 2)) * 100}%`,
+                left: "0%",
+                width: `${Math.min(1, debugHitZone.offsetPct / (debugHitZone.halfPct * 2)) * 100}%`,
               }}
             />
           )}
