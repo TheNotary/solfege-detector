@@ -307,8 +307,9 @@ export default function GameView(_props: GameViewProps) {
       <div
         className="crosshair-zone"
         style={{
-          left: `${CROSSHAIR_X - 6}%`,
-          width: "12%",
+          left: `${CROSSHAIR_X}%`,
+          width: "160px",
+          transform: "translateX(-50%)",
         }}
       />
 

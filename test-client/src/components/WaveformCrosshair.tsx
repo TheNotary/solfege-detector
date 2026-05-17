@@ -7,7 +7,7 @@ interface WaveformCrosshairProps {
   isRecording: boolean;
 }
 
-const CANVAS_WIDTH = 80;
+const CANVAS_WIDTH = 160;
 const CYAN = "rgba(0, 200, 255, 1)";
 const CYAN_GLOW = "rgba(0, 200, 255, 0.4)";
 
