@@ -2,14 +2,14 @@
 id: 112
 title: Separate 'Show hitzone offset' toggle from the general Debug HUD toggle
 type: feature
-status: in_progress
+status: closed
 priority: 2
 parent: 26
-claimed_by: snappy-spark
 assignees:
 - snappy-spark
 created_at: 2026-05-17T17:41:33.876257059Z
-updated_at: 2026-05-17T17:41:38.064070923Z
+updated_at: 2026-05-17T17:42:18.083127067Z
+closed_at: 2026-05-17T17:42:18.083126111Z
 ---
 
 Currently the 'Show Debug HUD' checkbox in Configurations (and the in-game Debug toggle) controls both the bottom-right debug info panel AND the yellow/purple hitzone-offset overlay around the crosshair. Split these so the user can show one without the other.
