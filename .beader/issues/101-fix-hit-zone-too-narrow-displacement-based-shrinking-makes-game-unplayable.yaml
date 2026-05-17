@@ -1,0 +1,20 @@
+---
+id: 101
+title: Fix hit zone too narrow — displacement-based shrinking makes game unplayable
+type: bug
+status: closed
+priority: 1
+parent: 26
+assignees:
+- fearless-whale
+created_at: 2026-05-17T16:16:44.637420249Z
+updated_at: 2026-05-17T16:16:58.631429456Z
+closed_at: 2026-05-17T16:16:58.631428825Z
+---
+
+---
+COMMENT
+2026-05-17T16:16:53.437582887Z
+author: fearless-whale
+
+Root cause: hit zone was derived from waveform displacement (Math.min(displacementPct, HIT_ZONE_HALF)), which even at max displacement produced only ~3.75% on 1920px screens vs the 6% HIT_ZONE_HALF. During normal singing, average displacement yielded ~1-2% hit zones. Fix: compute hit zone from the fixed 160px visual crosshair zone width (80px half = ~4.2% on 1920px) instead of dynamic displacement. This matches what the user visually sees.

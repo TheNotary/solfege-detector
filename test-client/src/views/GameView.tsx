@@ -15,7 +15,7 @@ import { useSmoothedPitch } from "../hooks/useSmoothedPitch";
 import { useDrone } from "../hooks/useDrone";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import OnsetFlash from "../components/OnsetFlash";
-import WaveformCrosshair, { WAVEFORM_MAX_AMPLITUDE_PX } from "../components/WaveformCrosshair";
+import WaveformCrosshair from "../components/WaveformCrosshair";
 import AppConfig from "../AppConfig";
 import { parseNoteName, foldToOctave, computeScaleFrequencies } from "../utils/noteUtils";
 import { useGameSettings } from "../hooks/useGameSettings";
@@ -166,21 +166,20 @@ export default function GameView(_props: GameViewProps) {
   );
   const [droneVolume, setDroneVolumeState] = useState(() => settings.droneVolume);
 
-  // Waveform displacement → displacement-based hit zone
+  // Waveform displacement (kept for visual reference / future use)
   const waveformDisplacement = useWaveformDisplacement(analyserNode, isRecording);
+  void waveformDisplacement; // used by WaveformCrosshair visually
 
   // Check for hits every frame when running.
-  // The effective hit zone half-width is derived from the waveform's average
-  // displacement so that notes must fall within the visible waveform swing.
+  // The hit zone matches the visual crosshair zone (160px wide = 80px each side).
   useEffect(() => {
     if (!isRunning || !isRecording) return;
 
-    // Convert displacement (0-1) → pixels → % of container width
+    // Convert the fixed crosshair-zone visual width to a % of container
     const containerWidth = containerRef.current?.clientWidth ?? 1;
-    const displacementPx = waveformDisplacement * WAVEFORM_MAX_AMPLITUDE_PX;
-    const displacementPct = (displacementPx / containerWidth) * 100;
-    // Clamp to the full capture zone so we never exceed it
-    const effectiveHalf = Math.min(displacementPct, HIT_ZONE_HALF);
+    const crosshairHalfPx = 80; // half of the 160px crosshair-zone element
+    const visualHalfPct = (crosshairHalfPx / containerWidth) * 100;
+    const effectiveHalf = Math.min(visualHalfPct, HIT_ZONE_HALF);
 
     const hit = checkHit(isSounding && isQualitySample, effectiveHalf);
     if (hit) {
