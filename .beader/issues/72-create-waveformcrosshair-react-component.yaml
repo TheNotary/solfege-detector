@@ -1,0 +1,31 @@
+---
+id: 72
+title: Create WaveformCrosshair React component
+type: task
+status: closed
+priority: 1
+parent: 71
+assignees:
+- brave-delta
+created_at: 2026-05-17T01:38:42.042966369Z
+updated_at: 2026-05-17T01:40:18.434115049Z
+closed_at: 2026-05-17T01:40:18.434113699Z
+---
+
+Create test-client/src/components/WaveformCrosshair.tsx with the following:
+
+Props: analyserNode (AnalyserNode | null), x (number, percentage position), isRecording (boolean).
+
+Rendering:
+- Canvas element positioned absolutely at left: x%, full height, ~80px wide, centered via transform: translateX(-50%)
+- requestAnimationFrame loop reads analyserNode.getByteTimeDomainData(dataArray) (existing fftSize=4096 gives 2048 samples)
+- Draw waveform vertically: sample index maps to Y (top to bottom), sample value (0-255, center 128) maps to X displacement from canvas center
+- Cyan color scheme: rgba(0, 200, 255, ...) matching the current crosshair
+- Glow effect: ctx.shadowBlur + ctx.shadowColor for outer glow, then thinner overdraw for sharp core line
+- When analyserNode is null or isRecording is false, draw a static vertical center line as fallback
+- Clean up RAF on unmount
+- Use useRef for canvas ref, dataArray buffer, and animation frame ID
+- Scale canvas internal resolution by window.devicePixelRatio for HiDPI crispness
+- Use ResizeObserver to keep canvas dimensions in sync with container height
+
+Files: test-client/src/components/WaveformCrosshair.tsx (new)

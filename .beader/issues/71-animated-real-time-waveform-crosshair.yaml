@@ -1,0 +1,34 @@
+---
+id: 71
+title: Animated real-time waveform crosshair
+type: feature
+status: closed
+priority: 1
+parent: 26
+created_at: 2026-05-17T01:38:29.908345283Z
+updated_at: 2026-05-17T01:41:01.336410567Z
+closed_at: 2026-05-17T01:41:01.336409757Z
+---
+
+## Summary
+Replace the static 2px cyan div crosshair with a canvas-based animated waveform that visualizes the live microphone signal. The waveform is drawn vertically (top-to-bottom), with horizontal displacement representing audio amplitude. When silent, it collapses to a straight line. The existing AnalyserNode already provides time-domain data; no new audio infrastructure needed.
+
+## User Message
+Enhance the crosshair so it is actually an animated real-time waveform of the microphone signal.
+
+## Plan
+Phase 1: Create WaveformCrosshair component (WaveformCrosshair.tsx and .css). Phase 2: Integrate into GameView (swap div for canvas component, remove dead CSS).
+
+## Technical Details
+- Data source: AnalyserNode.getByteTimeDomainData() returns Uint8Array[2048]. Values 0-255, center=128.
+- Vertical waveform mapping: sample index to Y, sample value to X displacement.
+- Glow effect via ctx.shadowBlur + ctx.shadowColor, then thinner overdraw for core line.
+- Canvas ~80px wide, full height, ResizeObserver, devicePixelRatio for HiDPI.
+- Performance: one RAF loop at ~60fps with a single canvas path, negligible overhead.
+
+## Relevant Files
+- test-client/src/components/WaveformCrosshair.tsx (new)
+- test-client/src/components/WaveformCrosshair.css (new)
+- test-client/src/views/GameView.tsx (modify)
+- test-client/src/views/GameView.css (modify)
+- test-client/src/hooks/useAudioStream.ts (read-only)

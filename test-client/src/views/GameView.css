@@ -30,19 +30,6 @@
   font-family: monospace;
 }
 
-/* Crosshair */
-.crosshair {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: rgba(0, 200, 255, 0.5);
-  box-shadow: 0 0 12px 2px rgba(0, 200, 255, 0.3),
-    0 0 40px 4px rgba(0, 200, 255, 0.1);
-  pointer-events: none;
-  z-index: 5;
-}
-
 .crosshair-zone {
   position: absolute;
   top: 0;

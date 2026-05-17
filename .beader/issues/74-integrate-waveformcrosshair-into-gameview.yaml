@@ -1,0 +1,27 @@
+---
+id: 74
+title: Integrate WaveformCrosshair into GameView
+type: task
+status: closed
+priority: 1
+parent: 71
+blocked_by:
+- 72
+- 73
+assignees:
+- brave-delta
+created_at: 2026-05-17T01:39:05.906463088Z
+updated_at: 2026-05-17T01:41:01.333430757Z
+closed_at: 2026-05-17T01:41:01.333430037Z
+---
+
+In test-client/src/views/GameView.tsx:
+- Import WaveformCrosshair from ../components/WaveformCrosshair
+- Replace the static div.crosshair (line ~226) with: <WaveformCrosshair analyserNode={analyserNode} x={CROSSHAIR_X} isRecording={isRecording} />
+- Keep the crosshair-zone div unchanged
+
+In test-client/src/views/GameView.css:
+- Remove the .crosshair CSS rule (lines ~36-44) since canvas replaces it
+- Keep .crosshair-zone rule unchanged
+
+Files: test-client/src/views/GameView.tsx (modify), test-client/src/views/GameView.css (modify)

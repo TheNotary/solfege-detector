@@ -12,6 +12,7 @@ import { useSmoothedPitch } from "../hooks/useSmoothedPitch";
 import { useDrone } from "../hooks/useDrone";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import OnsetFlash from "../components/OnsetFlash";
+import WaveformCrosshair from "../components/WaveformCrosshair";
 import AppConfig from "../AppConfig";
 
 const SOLFEGE_LABELS = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
@@ -224,7 +225,7 @@ export default function GameView(_props: GameViewProps) {
       })}
 
       {/* Crosshair */}
-      <div className="crosshair" style={{ left: `${CROSSHAIR_X}%` }} />
+      <WaveformCrosshair analyserNode={analyserNode} x={CROSSHAIR_X} isRecording={isRecording} />
       <div
         className="crosshair-zone"
         style={{

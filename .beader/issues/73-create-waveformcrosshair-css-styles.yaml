@@ -1,0 +1,22 @@
+---
+id: 73
+title: Create WaveformCrosshair CSS styles
+type: task
+status: closed
+priority: 2
+parent: 71
+assignees:
+- brave-delta
+created_at: 2026-05-17T01:38:47.432734918Z
+updated_at: 2026-05-17T01:40:18.438527029Z
+closed_at: 2026-05-17T01:40:18.438525859Z
+---
+
+Create test-client/src/components/WaveformCrosshair.css with minimal positioning styles for the canvas element:
+
+- position: absolute
+- top: 0; bottom: 0 (full height)
+- z-index: 5 (matches existing crosshair z-index)
+- pointer-events: none (non-interactive overlay)
+
+Files: test-client/src/components/WaveformCrosshair.css (new)
