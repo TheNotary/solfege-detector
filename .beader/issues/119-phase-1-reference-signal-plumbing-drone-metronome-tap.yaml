@@ -2,14 +2,14 @@
 id: 119
 title: 'Phase 1: Reference-signal plumbing (drone+metronome tap)'
 type: task
-status: in_progress
+status: closed
 priority: 2
 parent: 118
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-17T23:30:32.163857410Z
-updated_at: 2026-05-17T23:31:36.349104385Z
+updated_at: 2026-05-17T23:33:15.324437550Z
+closed_at: 2026-05-17T23:33:15.324436450Z
 ---
 
 Add a shared reference mix that both the drone and the metronome connect into, alongside their existing connection to `ctx.destination`. Foundational for all later phases; no audible change.
@@ -23,3 +23,10 @@ Work:
 Acceptance:
 - Drone + metronome sound identical to before.
 - Nothing consumes `refMix` yet (foundational only).
+
+---
+COMMENT
+2026-05-17T23:33:15.316412170Z
+author: witty-falcon
+
+Implemented in 3d9e7be. New `useReferenceMix` hook owns a single `GainNode` tap on the shared `AudioContext`; `useDrone` and `useMetronome` now accept an optional `monitorNode` and connect their gain to both `ctx.destination` and the monitor. Wired in `GameView.tsx`. `pnpm exec vite build` and `pnpm test` both pass; pre-existing TS6133 unused-import warnings in untouched files are not introduced by this change. No audible/visible change as expected; reference mix has no consumers yet (Phase 2 wires the AEC worklet).
