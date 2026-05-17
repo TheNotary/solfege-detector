@@ -1,0 +1,45 @@
+---
+id: 103
+title: Extract hitzone math into pure function
+type: task
+status: closed
+priority: 2
+parent: 102
+assignees:
+- radiant-grove
+created_at: 2026-05-17T16:37:08.479753146Z
+updated_at: 2026-05-17T16:40:30.804044208Z
+closed_at: 2026-05-17T16:40:30.804043152Z
+---
+
+Extract the duplicated hitzone geometry math from `GameView.tsx` (lines 186-198) and `useGameEngine.ts` `checkHit()` (lines 125-134) into a shared pure function in `test-client/src/lib/hitZoneGeometry.ts`.
+
+## Deliverable
+
+Export a pure function:
+```ts
+computeHitZoneGeometry({ bpm, audioLatencyMs, displayLatencyMs, containerWidthPx, crosshairHalfPx })
+  → { effectiveCenter, halfPct, offsetPct, crosshairX }
+```
+
+The function encapsulates:
+- `spawnInterval = 60 / bpm`
+- `travelTime = spawnInterval * 3`
+- `pctPerMs = 110 / (travelTime * 1000)`
+- `offsetPct = (audioLatencyMs + displayLatencyMs) * pctPerMs`
+- `effectiveCenter = CROSSHAIR_X + offsetPct`
+- `visualHalfPct = (crosshairHalfPx / containerWidthPx) * 100`
+- `halfPct = Math.min(visualHalfPct, HIT_ZONE_HALF)`
+
+## Acceptance Criteria
+- No behavioral change — game plays identically before and after
+- Both `GameView.tsx` and `useGameEngine.ts` import and use the shared function
+- Constants `CROSSHAIR_X` (20) and `HIT_ZONE_HALF` (6) are accessible from the new module
+
+---
+COMMENT
+2026-05-17T16:40:27.071073352Z
+author: radiant-grove
+
+Extracted duplicated hitzone geometry math from GameView.tsx and useGameEngine.ts into a shared pure function in test-client/src/lib/hitZoneGeometry.ts. Both call sites now import and use computeHitZoneGeometry(). Constants CROSSHAIR_X and HIT_ZONE_HALF are defined in the new module and re-exported from useGameEngine.ts so existing imports are unchanged. tsc --noEmit passes clean.
+

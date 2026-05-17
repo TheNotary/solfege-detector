@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { computeHitZoneGeometry, CROSSHAIR_X, HIT_ZONE_HALF } from "../lib/hitZoneGeometry";
+
+export { CROSSHAIR_X, HIT_ZONE_HALF } from "../lib/hitZoneGeometry";
 
 const SOLFEGE_SCALE = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
 export type Syllable = (typeof SOLFEGE_SCALE)[number];
@@ -21,11 +24,6 @@ export interface Score {
   hits: number;
   total: number;
 }
-
-/** Crosshair position as % from the left edge. */
-export const CROSSHAIR_X = 20;
-/** Half-width of the hit zone around the crosshair (%). */
-export const HIT_ZONE_HALF = 6;
 
 const DEFAULT_SPEED = 30; // notes per minute
 const MIN_SPEED = 10;
@@ -123,15 +121,11 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
       if (!isSounding) return null;
 
       // Compute effective crosshair center shifted by latency offset.
-      // Convert latencyOffsetMs → percentage shift based on current speed.
-      const bpm = speedRef.current;
-      const spawnInterval = 60 / bpm;
-      const travelTime = spawnInterval * 3; // seconds to cross 110% width
-      const pctPerMs = 110 / (travelTime * 1000);
-      const offsetPct = latencyOffsetMsRef.current * pctPerMs;
-      // Shift center to the right so notes are evaluated earlier (before
-      // they visually reach the crosshair), compensating for latency.
-      const effectiveCenter = CROSSHAIR_X + offsetPct;
+      const { effectiveCenter } = computeHitZoneGeometry({
+        bpm: speedRef.current,
+        audioLatencyMs: latencyOffsetMsRef.current,
+        displayLatencyMs: 0,
+      });
 
       const current = notesRef.current;
       for (let i = 0; i < current.length; i++) {
@@ -204,9 +198,11 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
       const pxPerSec = 110 / travelTime;
 
       // Effective crosshair center shifted by latency calibration offset
-      const pctPerMs = pxPerSec / 1000;
-      const loopOffsetPct = latencyOffsetMsRef.current * pctPerMs;
-      const effectiveCenter = CROSSHAIR_X + loopOffsetPct;
+      const { effectiveCenter } = computeHitZoneGeometry({
+        bpm: speedRef.current,
+        audioLatencyMs: latencyOffsetMsRef.current,
+        displayLatencyMs: 0,
+      });
 
       // Spawn new notes
       if (timestamp - lastSpawnRef.current >= spawnInterval * 1000) {

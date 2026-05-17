@@ -1,0 +1,54 @@
+---
+id: 102
+title: Hitzone latency offset test & visualization
+type: feature
+status: closed
+priority: 1
+parent: 26
+assignees:
+- radiant-grove
+created_at: 2026-05-17T16:36:51.045079782Z
+updated_at: 2026-05-17T16:42:35.134208360Z
+closed_at: 2026-05-17T16:42:35.134206140Z
+---
+
+## Summary
+Add a unit test capturing the observed ~25% rightward offset between the debug-hitzone and crosshair-zone, and render the latency-induced portion of the debug-hitzone as a dark purple overlay so the impact of latency calibration is visually clear.
+
+## User Message
+In test-client/ the debug-hitzone and crosshair-zone aren't drawn over the same area. Add a test to capture the fact that the debug-hitzone is drawn to the right of the crosshair-zone by about 25% the width of the hit zones. I wonder if the latency calibration might account for the offset? We should render the impact of latency on the debug-hitzone as shading in a different color like dark purple.
+
+## Plan
+
+### Phase 1 — Extract hitzone math into a pure, testable function
+
+1. Create `test-client/src/lib/hitZoneGeometry.ts` exporting a pure function:
+   `computeHitZoneGeometry({ bpm, audioLatencyMs, displayLatencyMs, containerWidthPx, crosshairHalfPx }) → { effectiveCenter, halfPct, offsetPct, crosshairX }`
+   Move the duplicated math from `GameView.tsx` (lines 186-198) and `useGameEngine.ts` (lines 125-134) into this shared function.
+
+2. Update `GameView.tsx` to call `computeHitZoneGeometry()` and pass result to `setDebugHitZone`. Extend `debugHitZone` state to include `offsetPct`.
+
+3. Update `useGameEngine.ts` `checkHit()` to call `computeHitZoneGeometry()` for `effectiveCenter`.
+
+### Phase 2 — Set up vitest & write offset test
+
+4. Install vitest, add test script, configure vite.config.ts.
+5. Create `test-client/src/lib/hitZoneGeometry.test.ts` with 5 tests:
+   - offset is zero when latency is zero
+   - positive latency shifts debug-hitzone to the right
+   - offset is ~25% of zone width at typical latency
+   - offset scales linearly with latency
+   - offset scales inversely with BPM
+
+### Phase 3 — Render latency impact as dark purple overlay
+
+6. Extend `debugHitZone` state to `{ centerPct, halfPct, offsetPct }`.
+7. Add child div inside `.debug-hit-zone` spanning from CROSSHAIR_X to effectiveCenter with dark purple background `rgba(80, 0, 120, 0.25)`. Only renders when offsetPct > 0.
+8. Add `.debug-latency-offset` CSS class and optionally a thin purple line at the no-latency center position.
+
+---
+COMMENT
+2026-05-17T16:40:10.617351127Z
+author: radiant-grove
+
+103

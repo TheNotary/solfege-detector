@@ -1,0 +1,57 @@
+---
+id: 105
+title: Render latency impact as dark purple overlay in debug-hitzone
+type: feature
+status: closed
+priority: 1
+parent: 102
+blocked_by:
+- 103
+assignees:
+- radiant-grove
+created_at: 2026-05-17T16:37:32.511920988Z
+updated_at: 2026-05-17T16:42:29.127847772Z
+closed_at: 2026-05-17T16:42:29.127846927Z
+---
+
+When the debug overlay is visible, render the portion of the debug-hitzone that is attributable to latency calibration as a dark purple shaded strip. This visually communicates how much the latency offset shifts the hit detection zone away from the visual crosshair.
+
+## Implementation
+
+1. Extend `debugHitZone` state type from `{ centerPct, halfPct }` to `{ centerPct, halfPct, offsetPct }` so the rendering layer knows the latency shift amount.
+
+2. In `GameView.tsx`, inside the `.debug-hit-zone` div, add a child:
+   ```tsx
+   {debugHitZone.offsetPct > 0 && (
+     <div
+       className="debug-latency-offset"
+       style={{
+         left: <position of CROSSHAIR_X relative to zone left edge>,
+         width: <offsetPct as proportion of zone width>,
+       }}
+     />
+   )}
+   ```
+   The purple strip spans from `CROSSHAIR_X` (where the center would be without latency) to `effectiveCenter` (where the center actually is).
+
+3. Add CSS class `.debug-latency-offset` in `GameView.css`:
+   - Background: `rgba(80, 0, 120, 0.25)` (dark purple, semi-transparent)
+   - Position: absolute, top: 0, bottom: 0
+   - pointer-events: none
+   - z-index between yellow zone background and center marker
+
+4. Optionally add a thin dark purple vertical line at the no-latency center position (`CROSSHAIR_X`) to mark "where the center would be without latency."
+
+## Acceptance Criteria
+- With non-zero latency: debug overlay shows yellow zone with a dark purple strip between the no-latency and latency-shifted centers
+- With zero latency: no purple strip visible, yellow zone aligns with cyan crosshair-zone
+- Purple strip width scales with latency amount — wider latency → wider purple strip
+- `pnpm build` succeeds
+
+---
+COMMENT
+2026-05-17T16:42:29.124135523Z
+author: radiant-grove
+
+Added dark purple overlay (rgba(80, 0, 120, 0.25)) inside the debug-hit-zone div that spans from CROSSHAIR_X to effectiveCenter. The strip is positioned as a fraction of the zone width so it scales correctly with latency amount. A thin purple right-border marks the no-latency center. Only renders when offsetPct > 0. tsc and all 5 tests pass.
+

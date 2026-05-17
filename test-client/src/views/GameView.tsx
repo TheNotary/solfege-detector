@@ -5,6 +5,7 @@ import NoteSprite from "../components/NoteSprite";
 import PitchBar from "../components/PitchBar";
 import { freqToY, buildNotePoints } from "../components/PitchBar";
 import { useGameEngine, CROSSHAIR_X, HIT_ZONE_HALF, syllableY } from "../hooks/useGameEngine";
+import { computeHitZoneGeometry } from "../lib/hitZoneGeometry";
 import { useWaveformDisplacement } from "../hooks/useWaveformDisplacement";
 import { useVolumeDetection } from "../hooks/useVolumeDetection";
 import { useAudioStream } from "../hooks/useAudioStream";
@@ -170,8 +171,8 @@ export default function GameView(_props: GameViewProps) {
   const waveformDisplacement = useWaveformDisplacement(analyserNode, isRecording);
   void waveformDisplacement; // used by WaveformCrosshair visually
 
-  // Debug hit zone geometry (centerPct, halfPct)
-  const [debugHitZone, setDebugHitZone] = useState<{ centerPct: number; halfPct: number } | null>(null);
+  // Debug hit zone geometry (centerPct, halfPct, offsetPct)
+  const [debugHitZone, setDebugHitZone] = useState<{ centerPct: number; halfPct: number; offsetPct: number } | null>(null);
 
   // Check for hits every frame when running.
   // The hit zone matches the visual crosshair zone (160px wide = 80px each side).
@@ -183,20 +184,15 @@ export default function GameView(_props: GameViewProps) {
 
     // Convert the fixed crosshair-zone visual width to a % of container
     const containerWidth = containerRef.current?.clientWidth ?? 1;
-    const crosshairHalfPx = 80; // half of the 160px crosshair-zone element
-    const visualHalfPct = (crosshairHalfPx / containerWidth) * 100;
-    const effectiveHalf = Math.min(visualHalfPct, HIT_ZONE_HALF);
+    const { effectiveCenter, halfPct: effectiveHalf, offsetPct } = computeHitZoneGeometry({
+      bpm: speed,
+      audioLatencyMs: settings.audioLatencyMs,
+      displayLatencyMs: settings.displayLatencyMs,
+      containerWidthPx: containerWidth,
+      crosshairHalfPx: 80,
+    });
 
-    // Compute latency-offset center (mirrors checkHit logic)
-    const bpm = speed;
-    const spawnInterval = 60 / bpm;
-    const travelTime = spawnInterval * 3;
-    const pctPerMs = 110 / (travelTime * 1000);
-    const latencyMs = settings.audioLatencyMs + settings.displayLatencyMs;
-    const offsetPct = latencyMs * pctPerMs;
-    const effectiveCenter = CROSSHAIR_X + offsetPct;
-
-    setDebugHitZone({ centerPct: effectiveCenter, halfPct: effectiveHalf });
+    setDebugHitZone({ centerPct: effectiveCenter, halfPct: effectiveHalf, offsetPct });
 
     const hit = checkHit(isSounding && isQualitySample, effectiveHalf);
     if (hit) {
@@ -383,6 +379,15 @@ export default function GameView(_props: GameViewProps) {
             width: `${debugHitZone.halfPct * 2}%`,
           }}
         >
+          {debugHitZone.offsetPct > 0 && (
+            <div
+              className="debug-latency-offset"
+              style={{
+                left: `${((debugHitZone.halfPct - debugHitZone.offsetPct) / (debugHitZone.halfPct * 2)) * 100}%`,
+                width: `${(debugHitZone.offsetPct / (debugHitZone.halfPct * 2)) * 100}%`,
+              }}
+            />
+          )}
           <div className="debug-hit-zone-center" style={{ left: "50%" }} />
         </div>
       )}

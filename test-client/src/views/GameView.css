@@ -62,6 +62,16 @@
   transform: translateX(-50%);
 }
 
+/* Debug: dark purple overlay showing the latency-induced offset */
+.debug-latency-offset {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(80, 0, 120, 0.25);
+  border-right: 1px solid rgba(120, 0, 180, 0.5);
+  pointer-events: none;
+}
+
 /* Note sprites */
 .note-sprite {
   position: absolute;
