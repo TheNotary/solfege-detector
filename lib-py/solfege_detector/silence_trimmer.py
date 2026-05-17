@@ -12,7 +12,7 @@ DEFAULT_SILENCE_THRESHOLD_DB = -40.0
 # Size of the RMS analysis window in seconds.
 DEFAULT_FRAME_SECONDS = 0.01
 # Extra padding (in seconds) to keep on each side of the voiced region.
-DEFAULT_PAD_SECONDS = 0.15
+DEFAULT_PAD_SECONDS = 0.25
 # Minimum silence gap (in seconds) to split voiced segments.
 DEFAULT_MIN_SILENCE_SECONDS = 0.06
 
