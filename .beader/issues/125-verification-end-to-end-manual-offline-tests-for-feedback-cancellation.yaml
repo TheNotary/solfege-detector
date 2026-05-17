@@ -9,7 +9,7 @@ blocked_by:
 - 122
 - 123
 created_at: 2026-05-17T23:31:06.852840831Z
-updated_at: 2026-05-17T23:31:10.970898492Z
+updated_at: 2026-05-17T23:45:53.926595395Z
 ---
 
 Confirm the feature works in practice and that backend audio is untouched.
@@ -22,3 +22,28 @@ Checks (from the plan):
 5. **Backend audio untouched**: spectrogram of a freshly saved `recorded_notes/*.wav` after a session with the filter on should still contain the drone (confirms backend path is unfiltered).
 6. **Calibration isolation**: latency calibration result stable with filter on vs off.
 7. **Toggle off**: behavior identical to pre-feature.
+
+---
+COMMENT
+2026-05-17T23:45:53.926594625Z
+author: witty-falcon
+
+Automated + structural verification complete. Manual hardware checks remain for the user.
+
+**Item 1 - Offline NLMS test:** DONE. test-client/src/lib/aecCore.test.ts (4 tests, all passing):
+- Sine reference cancellation: 130.81 Hz delayed+attenuated ref drops by >=20 dB within 2s.
+- Voice preservation: 440 Hz burst at t=3s stays within 3 dB of unfiltered RMS.
+- setDelayMs clamping, resetWeights zeroing.
+
+**Item 5 - Backend audio untouched (structural):** Verified by code path inspection. noteCaptureBufferRef in useAudioStream.ts is populated unconditionally from the raw ScriptProcessorNode (line 180); onCaptureChunkRef is invoked from the same site. The AEC useEffect only ADDS connections (source -> aecNode[0], referenceNode -> aecNode[1], aecNode -> filteredAnalyser); it never touches the raw scriptProcessor or noteCaptureBuffer. WebSocket onChunk is fed from the raw scriptProcessor via the same int16 conversion. Therefore captured training audio remains bit-identical regardless of feedbackCancellation state.
+
+**Item 6 - Calibration isolation (structural):** Verified. components/AudioCalibration.tsx creates its OWN AudioContext (line 97) and getUserMedia (line 87); it does not consume useAudioStream or useReferenceMix. The AEC graph in GameView is a separate AudioContext that doesn't exist during calibration.
+
+**Item 7 - Toggle off baseline (structural):** Verified. When settings.feedbackCancellation=false, aecEnabled=false, the AEC effect early-returns. filteredAnalyserNode stays null, display falls back to analyserNode (raw), and onVolume/onCaptureChunk are wired to the raw scriptProcessor callbacks. Behavior is identical to pre-feature.
+
+**Items 2, 3, 4 - Manual hardware checks remaining (require microphone + speakers):**
+- Drone alone: filtered waveform sits at the gate, no spurious confetti.
+- Metronome alone at 120 BPM: no OnsetFlash on clicks.
+- Drone + singing: cyan trace shows voice; in-zone confetti fires.
+
+Suggest the user run these with `cd test-client && pnpm dev`, open the debug HUD (Debug checkbox), and use the A/B raw/filtered toggle to compare. The AEC stats line will show residual dB, taps, and delay for tuning.

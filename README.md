@@ -34,7 +34,8 @@ The test-client presents a rhythm-game interface:
 - **Speed slider** controls note spawn rate (10–120 BPM)
 - **Backend recording** — per-note audio (onset-trimmed) is the primary capture path; the rolling recording buffer (~3 seconds around each event) is used as a fallback. Both save `.wav` + `.metadata` files to `recorded_notes/`
 - **Latency calibration** — two-phase calibration: audio input latency (say "pop" with synthesized clicks) and display latency (press spacebar when note reaches crosshair). Offsets shift the hit-zone timing during gameplay
-- **Persistent settings** — speed, responsiveness, root note, drone volume, debug mode, and calibration offsets are saved to localStorage
+- **Feedback cancellation** — an adaptive AEC AudioWorklet subtracts the drone + metronome bleed from the on-screen waveform and hit-zone visual feedback path. Toggle via Configurations → "Cancel drone/metronome bleed from waveform". The audio captured for backend training is always raw.
+- **Persistent settings** — speed, responsiveness, root note, drone volume, debug mode, feedback cancellation, and calibration offsets are saved to localStorage
 
 ## Quick Start
 

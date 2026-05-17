@@ -2,16 +2,16 @@
 id: 124
 title: 'Phase 6: Debug overlay for AEC tuning (optional)'
 type: task
-status: in_progress
+status: closed
 priority: 3
 parent: 118
 blocked_by:
 - 122
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-17T23:31:06.840823551Z
-updated_at: 2026-05-17T23:44:24.093664230Z
+updated_at: 2026-05-17T23:45:23.787148030Z
+closed_at: 2026-05-17T23:45:23.787145831Z
 ---
 
 Behind the existing `settings.debugMode` flag, expose lightweight diagnostics for tuning the AEC.
@@ -23,3 +23,10 @@ Work:
 Acceptance:
 - Overlay only renders when `settings.debugMode` is true.
 - A/B toggle visibly swaps the waveform source without remounting the audio graph.
+
+---
+COMMENT
+2026-05-17T23:45:23.782533827Z
+author: witty-falcon
+
+Implemented in 6569f65. useAudioStream now exposes aecStats sourced from the worklet's stats messages. GameView's debug HUD (gated on settings.showDebug) renders 'AEC: res X dB · mic Y dB · ref Z dB · d=N · N=taps' and an 'A/B: use raw analyser' checkbox that flips displayAnalyserNode between raw and filtered without rebuilding the audio graph (disabled when filteredAnalyserNode is null). Build + 12/12 tests pass.
