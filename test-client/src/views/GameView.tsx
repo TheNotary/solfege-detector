@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import "./GameView.css";
 import NoteSprite from "../components/NoteSprite";
 import PitchBar from "../components/PitchBar";
+import { freqToY } from "../components/PitchBar";
 import { useGameEngine, CROSSHAIR_X, syllableY, TARGET_FREQUENCIES } from "../hooks/useGameEngine";
 import { useVolumeDetection } from "../hooks/useVolumeDetection";
 import { useAudioStream } from "../hooks/useAudioStream";
@@ -292,6 +293,9 @@ export default function GameView(_props: GameViewProps) {
           </span>
           <span className="debug-pitch">
             Pitch: {avgPitchHz !== null ? `${avgPitchHz.toFixed(1)} Hz` : "—"}
+          </span>
+          <span className="debug-pitch">
+            Bar Y: {displayPitchHz !== null ? `${freqToY(displayPitchHz).toFixed(1)}%` : "—"}
           </span>
           <div className="volume-meter">
             <div
