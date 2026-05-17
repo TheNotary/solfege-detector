@@ -1,0 +1,38 @@
+---
+id: 76
+title: Add debug toggle checkbox to hud-center
+type: task
+status: closed
+priority: 2
+parent: 75
+assignees:
+- witty-ember
+created_at: 2026-05-17T03:32:41.051380716Z
+updated_at: 2026-05-17T03:34:57.893371556Z
+closed_at: 2026-05-17T03:34:57.893371104Z
+---
+
+Add a showDebug boolean state (defaulting to true) in GameView. Add a labeled checkbox at the bottom of the .hud-center div (after drone controls) that toggles this state.
+
+Implementation:
+- const [showDebug, setShowDebug] = useState(true);
+- <label className="debug-toggle"><input type="checkbox" checked={showDebug} onChange={(e) => setShowDebug(e.target.checked)} /> Debug</label>
+- Place after the drone-control div inside hud-center
+
+Files: test-client/src/views/GameView.tsx
+
+---
+COMMENT
+2026-05-17T03:34:39.754809992Z
+author: crisp-lark
+
+Added debug toggle checkbox to hud-center with showDebug state (default true)
+
+
+---
+COMMENT
+2026-05-17T03:34:44.812568702Z
+author: crisp-lark
+
+Added debug toggle checkbox to hud-center with showDebug state (default true)
+

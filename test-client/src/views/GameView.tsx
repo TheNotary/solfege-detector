@@ -86,6 +86,29 @@ export default function GameView(_props: GameViewProps) {
     acceleration
   );
 
+  // Debug HUD toggle
+  const [showDebug, setShowDebug] = useState(true);
+
+  // 100ms sliding-window pitch average
+  const pitchBufferRef = useRef<Array<{ hz: number; t: number }>>([]);
+  const [avgPitchHz, setAvgPitchHz] = useState<number | null>(null);
+  useEffect(() => {
+    const now = performance.now();
+    if (pitchHz !== null) {
+      pitchBufferRef.current.push({ hz: pitchHz, t: now });
+    }
+    // Prune entries older than 100ms
+    const cutoff = now - 100;
+    pitchBufferRef.current = pitchBufferRef.current.filter((e) => e.t >= cutoff);
+    const buf = pitchBufferRef.current;
+    if (buf.length > 0) {
+      const sum = buf.reduce((acc, e) => acc + e.hz, 0);
+      setAvgPitchHz(sum / buf.length);
+    } else {
+      setAvgPitchHz(null);
+    }
+  }, [pitchHz]);
+
   // Drone
   const { startDrone, stopDrone, isDroning, setDroneVolume } = useDrone(
     audioContext
@@ -201,6 +224,14 @@ export default function GameView(_props: GameViewProps) {
               }}
             />
           </div>
+          <label className="debug-toggle">
+            <input
+              type="checkbox"
+              checked={showDebug}
+              onChange={(e) => setShowDebug(e.target.checked)}
+            />
+            Debug
+          </label>
         </div>
         <div className="hud-right">
           <span
@@ -245,13 +276,20 @@ export default function GameView(_props: GameViewProps) {
         <NoteSprite key={note.id} note={note} containerRef={containerRef} />
       ))}
 
-      {/* Volume meter */}
-      <div className="volume-meter">
-        <div
-          className="volume-meter-fill"
-          style={{ height: `${Math.min(volume * 500, 100)}%` }}
-        />
-      </div>
+      {/* Debug HUD */}
+      {showDebug && (
+        <div className="debug-hud">
+          <span className="debug-pitch">
+            Pitch: {avgPitchHz !== null ? `${avgPitchHz.toFixed(1)} Hz` : "—"}
+          </span>
+          <div className="volume-meter">
+            <div
+              className="volume-meter-fill"
+              style={{ height: `${Math.min(volume * 500, 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

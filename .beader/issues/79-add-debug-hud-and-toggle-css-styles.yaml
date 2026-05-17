@@ -1,0 +1,30 @@
+---
+id: 79
+title: Add debug HUD and toggle CSS styles
+type: task
+status: closed
+priority: 2
+parent: 75
+assignees:
+- witty-ember
+created_at: 2026-05-17T03:33:01.609652115Z
+updated_at: 2026-05-17T03:35:16.006958546Z
+closed_at: 2026-05-17T03:35:16.006957824Z
+---
+
+Add CSS styles for the new debug HUD elements and adjust volume-meter positioning.
+
+Changes:
+1. Add .debug-hud: position absolute, bottom-right, semi-transparent dark background (rgba(0,0,0,0.6)), flex column, gap 8px, padding 12px, border-radius, monospace font, small font-size (0.75rem), color rgba(255,255,255,0.7), z-index 20
+2. Add .debug-toggle: small checkbox label matching existing HUD control styling (0.8rem, monospace, rgba(255,255,255,0.5)), cursor pointer, flex row with gap
+3. Update .volume-meter: change from position:absolute to position:relative, remove bottom/right positioning (now flows inside debug-hud container), keep width/height/appearance
+
+Files: test-client/src/views/GameView.css
+
+---
+COMMENT
+2026-05-17T03:35:15.997169050Z
+author: crisp-lark
+
+Added .debug-hud (absolute bottom-right, semi-transparent), .debug-toggle, .debug-pitch styles. Changed .volume-meter from absolute to relative positioning
+

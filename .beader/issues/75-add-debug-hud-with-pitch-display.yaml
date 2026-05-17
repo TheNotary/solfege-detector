@@ -1,0 +1,46 @@
+---
+id: 75
+title: Add debug HUD with pitch display
+type: feature
+status: closed
+priority: 2
+parent: 26
+created_at: 2026-05-17T03:32:30.324110940Z
+updated_at: 2026-05-17T03:35:21.975437603Z
+closed_at: 2026-05-17T03:35:21.975437055Z
+---
+
+## Summary
+Add a debug checkbox (checked by default) to the hud-center element in the test-client GameView. When checked, a debug HUD container becomes visible in the lower-right corner containing the existing volume meter and a new labeled pitch readout (100ms averaged).
+
+## User Message
+Add a debug checkbox to the hud-center element of test-client/. Have it checked by default. When it is checked, a debug hud container becomes visible in the lower right. Put the existing volume-meter inside of that. Also, add a labeled span element that shows the detected pitch (averaged of the last 100ms).
+
+## Plan
+### Phase 1 — State & Checkbox (GameView.tsx)
+1. Add showDebug boolean state, defaulting to true
+2. Add a labeled checkbox at the bottom of .hud-center (after drone controls)
+
+### Phase 2 — Debug HUD Container (GameView.tsx)
+3. Wrap the existing volume-meter in a new debug-hud div, conditionally rendered when showDebug is true
+4. Add a labeled span inside debug-hud showing averaged pitch (Pitch: 261.3 Hz or Pitch: —)
+
+### Phase 3 — 100ms Pitch Averaging (GameView.tsx, inline)
+5. Use a useRef ring buffer of {hz, t} entries. On each pitchHz change, push the reading (skip nulls), prune entries older than 100ms, compute arithmetic mean. Uses raw pitchHz (not the spring-damped displayPitchHz).
+
+### Phase 4 — CSS (GameView.css)
+6. .debug-hud — absolute bottom-right, semi-transparent dark bg, flex column, monospace, z-index 20
+7. .debug-toggle — small label matching existing HUD control styling
+8. .volume-meter — change from position: absolute to position: relative (now flows inside debug-hud)
+
+## Relevant Files
+- test-client/src/views/GameView.tsx
+- test-client/src/views/GameView.css
+
+---
+COMMENT
+2026-05-17T03:35:21.966509628Z
+author: crisp-lark
+
+All subtasks complete. Debug checkbox in hud-center (checked by default) toggles a debug HUD panel in bottom-right containing volume meter and 100ms-averaged pitch readout.
+
