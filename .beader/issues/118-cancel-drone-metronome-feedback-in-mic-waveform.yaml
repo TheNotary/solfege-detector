@@ -6,7 +6,7 @@ status: todo
 priority: 2
 parent: 26
 created_at: 2026-05-17T23:30:16.906265910Z
-updated_at: 2026-05-17T23:30:16.906265910Z
+updated_at: 2026-05-17T23:46:25.489571484Z
 ---
 
 ## Summary
@@ -60,3 +60,10 @@ Tap drone + metronome into a "reference mix" `GainNode` (in addition to `ctx.des
 1. **Filtered tap delivery to JS** — `port.postMessage` of Float32 frames (recommended) vs. a second `ScriptProcessorNode` after the worklet.
 2. **Onset-detection feed split** — fork the `onCaptureChunk` callback so the per-note capture buffer keeps raw chunks while onset detection gets filtered chunks.
 3. **Reset on big calibration shift** — if `audioInputLatencyMs` changes by >=30 ms mid-session, also reset adaptive coefficients with a ~2 s re-converge.
+
+---
+COMMENT
+2026-05-17T23:46:25.489570289Z
+author: witty-falcon
+
+Implementation complete across Phases 1-6 (subissues #119-#124, all closed). Only #125 remains open, pending manual hardware verification (drone-alone / metronome-alone / drone+singing checks on real audio I/O). Commits: 3d9e7be Phase 1, c2898ad Phase 2, bd9840f Phase 3, 1e592d5 Phase 4, b678e21 Phase 5, 6569f65 Phase 6, 497c0f1 README. Build green, 12/12 vitest tests pass. Backend audio path remains bit-identical -- per-note capture buffer and WebSocket onChunk are fed unconditionally from the raw ScriptProcessorNode; the AEC graph is purely additive on display-side consumers.
