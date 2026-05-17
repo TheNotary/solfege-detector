@@ -96,6 +96,9 @@ export function useAudioStream(
       audio: {
         channelCount: 1,
         sampleRate: TARGET_SAMPLE_RATE,
+        autoGainControl: false,
+        noiseSuppression: false,
+        echoCancellation: false,
       },
     });
     mediaStreamRef.current = stream;

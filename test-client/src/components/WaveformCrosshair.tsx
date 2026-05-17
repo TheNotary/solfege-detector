@@ -11,6 +11,33 @@ const CANVAS_WIDTH = 80;
 const CYAN = "rgba(0, 200, 255, 1)";
 const CYAN_GLOW = "rgba(0, 200, 255, 0.4)";
 
+/**
+ * Soft-knee compressor: boosts quiet signals while clamping loud ones.
+ * Input `v` is a linear amplitude in [-1, 1].  Output is compressed into
+ * the same range, preserving sign.
+ *
+ * `knee` (0-1) controls the crossover point; `ratio` is the compression
+ * ratio above the knee (e.g. 4 means 4:1 compression).
+ */
+const COMP_KNEE = 0.15; // signals below 15% amplitude get boosted
+const COMP_RATIO = 4;
+const NOISE_GATE_THRESHOLD = 0.015; // RMS below this → flat line
+function compress(v: number): number {
+  const sign = v < 0 ? -1 : 1;
+  const abs = Math.abs(v);
+  if (abs <= COMP_KNEE) {
+    // Below knee: linear gain that maps knee → knee*ratio factor
+    // We boost so that COMP_KNEE maps to COMP_KNEE + (1-COMP_KNEE)/COMP_RATIO
+    const gain = 1 + (1 - COMP_KNEE) / (COMP_KNEE * COMP_RATIO);
+    return sign * Math.min(abs * gain, 1);
+  }
+  // Above knee: compressed (ratio:1)
+  const compressed = COMP_KNEE + (abs - COMP_KNEE) / COMP_RATIO;
+  // Normalize so full-scale (1.0) → 1.0
+  const kneeOut = COMP_KNEE + (1 - COMP_KNEE) / COMP_RATIO;
+  return sign * Math.min(compressed / kneeOut, 1);
+}
+
 export default function WaveformCrosshair({
   analyserNode,
   x,
@@ -74,6 +101,15 @@ export default function WaveformCrosshair({
         const len = data.length;
         const maxAmplitude = w * 0.45; // max horizontal displacement
 
+        // Noise gate: compute RMS and suppress when below threshold
+        let sumSq = 0;
+        for (let i = 0; i < len; i++) {
+          const s = (data[i] - 128) / 128;
+          sumSq += s * s;
+        }
+        const rms = Math.sqrt(sumSq / len);
+        const gateOpen = rms >= NOISE_GATE_THRESHOLD;
+
         // --- Glow pass ---
         ctx.save();
         ctx.strokeStyle = CYAN_GLOW;
@@ -84,7 +120,8 @@ export default function WaveformCrosshair({
         for (let i = 0; i < len; i++) {
           const yFrac = i / (len - 1);
           const y = yFrac * h;
-          const xOffset = ((data[i] - 128) / 128) * maxAmplitude;
+          const linear = (data[i] - 128) / 128;
+          const xOffset = gateOpen ? compress(linear) * maxAmplitude : 0;
           if (i === 0) {
             ctx.moveTo(cx + xOffset, y);
           } else {
@@ -104,7 +141,8 @@ export default function WaveformCrosshair({
         for (let i = 0; i < len; i++) {
           const yFrac = i / (len - 1);
           const y = yFrac * h;
-          const xOffset = ((data[i] - 128) / 128) * maxAmplitude;
+          const linear = (data[i] - 128) / 128;
+          const xOffset = gateOpen ? compress(linear) * maxAmplitude : 0;
           if (i === 0) {
             ctx.moveTo(cx + xOffset, y);
           } else {
