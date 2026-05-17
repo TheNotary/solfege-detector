@@ -139,6 +139,8 @@ export default function GameView(_props: GameViewProps) {
 
   // Debug HUD toggle
   const [showDebug, setShowDebug] = useState(() => settings.showDebug);
+  // Hitzone offset overlay toggle (independent of the general debug HUD)
+  const [showHitzoneOffset, setShowHitzoneOffset] = useState(() => settings.showHitzoneOffset);
 
   // 100ms sliding-window pitch average
   const pitchBufferRef = useRef<Array<{ hz: number; t: number }>>([]);
@@ -335,6 +337,14 @@ export default function GameView(_props: GameViewProps) {
             />
             Debug
           </label>
+          <label className="debug-toggle">
+            <input
+              type="checkbox"
+              checked={showHitzoneOffset}
+              onChange={(e) => setShowHitzoneOffset(e.target.checked)}
+            />
+            Hitzone
+          </label>
         </div>
         <div className="hud-right">
           <span
@@ -372,7 +382,7 @@ export default function GameView(_props: GameViewProps) {
       />
 
       {/* Debug: actual hit zone overlay */}
-      {showDebug && debugHitZone && (
+      {showHitzoneOffset && debugHitZone && (
         <div
           className="debug-hit-zone"
           style={{

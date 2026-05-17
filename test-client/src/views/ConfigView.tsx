@@ -99,6 +99,18 @@ export default function ConfigView() {
           </label>
         </div>
 
+        {/* Hitzone offset overlay */}
+        <div className="config-field">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={draft.showHitzoneOffset}
+              onChange={(e) => set("showHitzoneOffset", e.target.checked)}
+            />
+            Show hitzone offset
+          </label>
+        </div>
+
         {/* Actions */}
         <div className="config-actions">
           <button className="save-btn" onClick={handleSave}>

@@ -1,0 +1,29 @@
+---
+id: 112
+title: Separate 'Show hitzone offset' toggle from the general Debug HUD toggle
+type: feature
+status: in_progress
+priority: 2
+parent: 26
+claimed_by: snappy-spark
+assignees:
+- snappy-spark
+created_at: 2026-05-17T17:41:33.876257059Z
+updated_at: 2026-05-17T17:41:38.064070923Z
+---
+
+Currently the 'Show Debug HUD' checkbox in Configurations (and the in-game Debug toggle) controls both the bottom-right debug info panel AND the yellow/purple hitzone-offset overlay around the crosshair. Split these so the user can show one without the other.
+
+## User Message
+> Make it so there's a separate 'show hitzone offset' checkbox in the options menu.
+
+## Plan
+1. Add a new persisted setting `showHitzoneOffset: boolean` (default true) in `test-client/src/hooks/useGameSettings.ts`.
+2. In `test-client/src/views/ConfigView.tsx` add a second checkbox 'Show hitzone offset' bound to the new setting.
+3. In `test-client/src/views/GameView.tsx`:
+   - Add local state `showHitzoneOffset` initialized from the new setting, mirroring the existing `showDebug` pattern.
+   - Gate the `.debug-hit-zone` block (line ~375) on `showHitzoneOffset` instead of `showDebug`.
+   - Add a matching checkbox in the in-game HUD next to the existing 'Debug' checkbox so the user can flip it without leaving the game.
+4. Existing `showDebug` continues to gate only the bottom-right debug info panel (note/pitch/bar Y/volume meter).
+
+Out of scope: persisting the in-game toggle change back to settings (matches existing behavior of the Debug toggle which is also local-only).

@@ -6,6 +6,7 @@ export interface GameSettings {
   rootNote: string;
   droneVolume: number;
   showDebug: boolean;
+  showHitzoneOffset: boolean;
   audioLatencyMs: number;
   displayLatencyMs: number;
 }
@@ -18,6 +19,7 @@ const DEFAULTS: GameSettings = {
   rootNote: "E3",
   droneVolume: 0.15,
   showDebug: true,
+  showHitzoneOffset: true,
   audioLatencyMs: 0,
   displayLatencyMs: 0,
 };
