@@ -38,7 +38,7 @@ export function syllableY(syllable: Syllable): number {
   return 85 - (idx / (SOLFEGE_SCALE.length - 1)) * 70;
 }
 
-/** Target frequencies for each syllable based on C3 reference. */
+/** Target frequencies for each syllable based on C3 reference (default). */
 export const TARGET_FREQUENCIES: Record<Syllable, number> = {
   do: 130.81,
   re: 146.83,
@@ -54,6 +54,8 @@ export interface UseGameEngineOptions {
   startNoteCapture?: () => void;
   /** Called when a note exits the hit zone; returns captured audio. */
   stopNoteCapture?: () => ArrayBuffer | null;
+  /** Dynamic target frequencies per syllable (overrides C3 defaults). */
+  targetFrequencies?: Record<Syllable, number>;
 }
 
 export interface UseGameEngineReturn {
@@ -94,6 +96,8 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
   startNoteCaptureRef.current = options?.startNoteCapture;
   const stopNoteCaptureRef = useRef(options?.stopNoteCapture);
   stopNoteCaptureRef.current = options?.stopNoteCapture;
+  const targetFreqRef = useRef(options?.targetFrequencies ?? TARGET_FREQUENCIES);
+  targetFreqRef.current = options?.targetFrequencies ?? TARGET_FREQUENCIES;
 
   const setSpeed = useCallback((s: number) => {
     const clamped = Math.max(MIN_SPEED, Math.min(MAX_SPEED, s));
@@ -120,7 +124,7 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
           return {
             syllable: note.syllable,
             noteId: note.id,
-            targetFrequencyHz: TARGET_FREQUENCIES[note.syllable],
+            targetFrequencyHz: targetFreqRef.current[note.syllable],
           };
         }
       }

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./GameView.css";
 import NoteSprite from "../components/NoteSprite";
 import PitchBar from "../components/PitchBar";
-import { freqToY } from "../components/PitchBar";
-import { useGameEngine, CROSSHAIR_X, syllableY, TARGET_FREQUENCIES } from "../hooks/useGameEngine";
+import { freqToY, buildNotePoints } from "../components/PitchBar";
+import { useGameEngine, CROSSHAIR_X, syllableY } from "../hooks/useGameEngine";
 import { useVolumeDetection } from "../hooks/useVolumeDetection";
 import { useAudioStream } from "../hooks/useAudioStream";
 import { useWebSocket } from "../hooks/useWebSocket";
@@ -15,6 +15,7 @@ import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import OnsetFlash from "../components/OnsetFlash";
 import WaveformCrosshair from "../components/WaveformCrosshair";
 import AppConfig from "../AppConfig";
+import { parseNoteName, foldToOctave, computeScaleFrequencies } from "../utils/noteUtils";
 
 const SOLFEGE_LABELS = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
 
@@ -30,9 +31,31 @@ interface GameViewProps {
   isConnected?: boolean;
 }
 
+const DEFAULT_ROOT_HZ = 130.81; // C3
+
 export default function GameView(_props: GameViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sentNoteIds = useRef<Set<number>>(new Set());
+
+  // Root note configuration
+  const [rootNote, setRootNote] = useState("C3");
+  const [rootFrequencyHz, setRootFrequencyHz] = useState(DEFAULT_ROOT_HZ);
+  const scaleFrequencies = useMemo(
+    () => computeScaleFrequencies(rootFrequencyHz),
+    [rootFrequencyHz],
+  );
+  const notePoints = useMemo(
+    () => buildNotePoints(scaleFrequencies),
+    [scaleFrequencies],
+  );
+
+  const handleRootNoteChange = useCallback((value: string) => {
+    setRootNote(value);
+    const parsed = parseNoteName(value);
+    if (parsed) {
+      setRootFrequencyHz(parsed.frequency);
+    }
+  }, []);
 
   const { send, sendNoteEvent, isConnected } = useWebSocket(AppConfig.SOCKET_URL);
   const { volume, isSounding, onVolume } = useVolumeDetection();
@@ -83,16 +106,21 @@ export default function GameView(_props: GameViewProps) {
     startGame,
     stopGame,
     isRunning,
-  } = useGameEngine({ startNoteCapture, stopNoteCapture });
+  } = useGameEngine({ startNoteCapture, stopNoteCapture, targetFrequencies: scaleFrequencies });
 
   const { isQualitySample } = useAudioQuality(analyserNode);
   const { pitchHz } = usePitchDetection(analyserNode);
 
+  // Fold detected pitch into the root octave so the bar aligns regardless of
+  // which octave the singer is actually using.
+  const foldedPitchHz = pitchHz !== null ? foldToOctave(pitchHz, rootFrequencyHz) : null;
+
   // Pitch indicator smoothing
   const [acceleration, setAcceleration] = useState(1.0);
   const { displayPitchHz, opacity: pitchOpacity } = useSmoothedPitch(
-    pitchHz,
-    acceleration
+    foldedPitchHz,
+    acceleration,
+    rootFrequencyHz,
   );
 
   // Debug HUD toggle
@@ -118,9 +146,10 @@ export default function GameView(_props: GameViewProps) {
     }
   }, [pitchHz]);
 
-  // Drone
+  // Drone — plays at the configured root frequency
   const { startDrone, stopDrone, isDroning, setDroneVolume } = useDrone(
-    audioContext
+    audioContext,
+    rootFrequencyHz,
   );
   const [droneVolume, setDroneVolumeState] = useState(0.15);
 
@@ -155,13 +184,13 @@ export default function GameView(_props: GameViewProps) {
         isHit,
         {
           fft_pitch_hz: pitchHz,
-          target_frequency_hz: TARGET_FREQUENCIES[note.syllable],
+          target_frequency_hz: scaleFrequencies[note.syllable],
         },
         note.audioSegment ?? null
       );
       sentNoteIds.current.add(note.id);
     }
-  }, [notes, sendNoteEvent, pitchHz]);
+  }, [notes, sendNoteEvent, pitchHz, scaleFrequencies]);
 
   const handleToggle = useCallback(() => {
     if (isRunning) {
@@ -211,6 +240,16 @@ export default function GameView(_props: GameViewProps) {
               step={0.1}
               value={acceleration}
               onChange={(e) => setAcceleration(parseFloat(e.target.value))}
+            />
+          </div>
+          <div className="root-note-control">
+            <label>Root:</label>
+            <input
+              type="text"
+              className="root-note-input"
+              value={rootNote}
+              onChange={(e) => handleRootNoteChange(e.target.value)}
+              placeholder="C3"
             />
           </div>
           <div className="drone-control">
@@ -275,7 +314,7 @@ export default function GameView(_props: GameViewProps) {
       />
 
       {/* Pitch indicator bar */}
-      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} />
+      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} notePoints={notePoints} />
 
       {/* Onset flash indicator */}
       <OnsetFlash onsetCount={onsetCount} active={isRunning} />
@@ -295,7 +334,7 @@ export default function GameView(_props: GameViewProps) {
             Pitch: {avgPitchHz !== null ? `${avgPitchHz.toFixed(1)} Hz` : "—"}
           </span>
           <span className="debug-pitch">
-            Bar Y: {displayPitchHz !== null ? `${freqToY(displayPitchHz).toFixed(1)}%` : "—"}
+            Bar Y: {displayPitchHz !== null ? `${freqToY(displayPitchHz, notePoints).toFixed(1)}%` : "—"}
           </span>
           <div className="volume-meter">
             <div

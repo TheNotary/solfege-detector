@@ -1,0 +1,47 @@
+---
+id: 85
+title: Add root note text field to HUD and wire everything together
+type: task
+status: closed
+priority: 1
+parent: 80
+blocked_by:
+- 82
+- 83
+- 84
+assignees:
+- gentle-comet
+created_at: 2026-05-17T05:02:04.817457651Z
+updated_at: 2026-05-17T05:08:14.814383377Z
+closed_at: 2026-05-17T05:08:14.814382836Z
+---
+
+Update `test-client/src/views/GameView.tsx` to add a root note text input and connect all the dynamic pieces.
+
+**Changes:**
+
+1. **Root note state**: Add `rootNote` string state (default "C3") and derived `rootFrequencyHz` number (default 130.81).
+
+2. **HUD text input**: Add a text input field to the top-center HUD (near the drone controls) with placeholder "Root note" and default value "C3". On change, parse with `parseNoteName`; if valid, update `rootFrequencyHz` and `rootNote`. If invalid, keep the last valid value (do not clear or crash).
+
+3. **Octave folding**: Before passing pitchHz to useSmoothedPitch, fold it into the root octave:
+   `foldedPitchHz = pitchHz !== null ? foldToOctave(pitchHz, rootFrequencyHz) : null`
+   Pass `foldedPitchHz` to useSmoothedPitch instead of raw pitchHz.
+
+4. **Scale frequencies**: Compute `scaleFrequencies = computeScaleFrequencies(rootFrequencyHz)` and pass to:
+   - PitchBar (for dynamic freqToY)
+   - useGameEngine (as targetFrequencies option)
+
+5. **Drone wiring**: Pass `rootFrequencyHz` to useDrone so the drone plays at the root note.
+
+6. **Debug HUD**: Keep raw pitchHz in the debug display (so it still shows actual Hz, not folded), but the bar Y% should reflect the folded/dynamic mapping.
+
+**File**: `test-client/src/views/GameView.tsx`
+**Depends on**: #81 (noteUtils), #82 (dynamic PitchBar), #83 (dynamic drone), #84 (dynamic game engine)
+
+---
+COMMENT
+2026-05-17T05:08:14.810313285Z
+author: gentle-comet
+
+85

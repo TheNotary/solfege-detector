@@ -9,16 +9,18 @@ interface UseSmoothedPitchReturn {
  * Smooths raw pitch detection values using velocity-clamped movement.
  * The acceleration parameter controls how quickly the displayed pitch
  * can change direction/speed (higher = more responsive, lower = sluggish).
+ * rootHz sets the initial pitch and derives the clamp range.
  */
 export function useSmoothedPitch(
   pitchHz: number | null,
-  acceleration: number
+  acceleration: number,
+  rootHz: number = 130.81,
 ): UseSmoothedPitchReturn {
   const [displayPitchHz, setDisplayPitchHz] = useState<number | null>(null);
   const [opacity, setOpacity] = useState(0);
 
   const stateRef = useRef({
-    currentPitch: 130.81, // Start at C3
+    currentPitch: rootHz,
     velocity: 0,
     opacity: 0,
     lastTime: 0,
@@ -28,6 +30,8 @@ export function useSmoothedPitch(
   pitchRef.current = pitchHz;
   const accelRef = useRef(acceleration);
   accelRef.current = acceleration;
+  const rootHzRef = useRef(rootHz);
+  rootHzRef.current = rootHz;
 
   const rafRef = useRef<number | null>(null);
 
@@ -78,8 +82,10 @@ export function useSmoothedPitch(
         state.opacity = Math.max(0, state.opacity - OPACITY_FADE_OUT_RATE * clampedDt);
       }
 
-      // Clamp pitch to reasonable range
-      state.currentPitch = Math.max(80, Math.min(500, state.currentPitch));
+      // Clamp pitch to reasonable range relative to root
+      const minHz = rootHzRef.current * 0.7;
+      const maxHz = rootHzRef.current * 2.2;
+      state.currentPitch = Math.max(minHz, Math.min(maxHz, state.currentPitch));
 
       if (state.opacity > 0.01) {
         setDisplayPitchHz(state.currentPitch);

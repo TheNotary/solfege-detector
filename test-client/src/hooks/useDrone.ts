@@ -1,8 +1,8 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-const C3_FREQ = 130.81;
 const FADE_DURATION = 0.5; // seconds
 const DEFAULT_VOLUME = 0.15;
+const DEFAULT_FREQ = 130.81; // C3
 
 interface UseDroneReturn {
   startDrone: () => void;
@@ -12,16 +12,22 @@ interface UseDroneReturn {
 }
 
 /**
- * Synthesized C3 drone using Web Audio OscillatorNodes.
+ * Synthesized drone using Web Audio OscillatorNodes.
  * Produces a warm, spa-like tone with harmonics and subtle LFO vibrato.
+ * The frequency defaults to C3 (130.81 Hz) but can be changed dynamically.
  */
-export function useDrone(audioContext: AudioContext | null): UseDroneReturn {
+export function useDrone(
+  audioContext: AudioContext | null,
+  frequency: number = DEFAULT_FREQ,
+): UseDroneReturn {
   const [isDroning, setIsDroning] = useState(false);
 
   const masterGainRef = useRef<GainNode | null>(null);
   const oscillatorsRef = useRef<OscillatorNode[]>([]);
   const volumeRef = useRef(DEFAULT_VOLUME);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const freqRef = useRef(frequency);
+  freqRef.current = frequency;
 
   const startDrone = useCallback(() => {
     if (!audioContext || isDroning) return;
@@ -32,6 +38,7 @@ export function useDrone(audioContext: AudioContext | null): UseDroneReturn {
       stopTimerRef.current = null;
     }
 
+    const freq = freqRef.current;
     const now = audioContext.currentTime;
 
     // Master gain node
@@ -43,10 +50,10 @@ export function useDrone(audioContext: AudioContext | null): UseDroneReturn {
 
     const oscillators: OscillatorNode[] = [];
 
-    // Fundamental: C3 sine
+    // Fundamental sine
     const fundamental = audioContext.createOscillator();
     fundamental.type = "sine";
-    fundamental.frequency.setValueAtTime(C3_FREQ, now);
+    fundamental.frequency.setValueAtTime(freq, now);
     fundamental.connect(masterGain);
     oscillators.push(fundamental);
 
@@ -56,7 +63,7 @@ export function useDrone(audioContext: AudioContext | null): UseDroneReturn {
     harm2Gain.connect(masterGain);
     const harm2 = audioContext.createOscillator();
     harm2.type = "sine";
-    harm2.frequency.setValueAtTime(C3_FREQ * 2, now);
+    harm2.frequency.setValueAtTime(freq * 2, now);
     harm2.connect(harm2Gain);
     oscillators.push(harm2);
 
@@ -66,7 +73,7 @@ export function useDrone(audioContext: AudioContext | null): UseDroneReturn {
     harm3Gain.connect(masterGain);
     const harm3 = audioContext.createOscillator();
     harm3.type = "sine";
-    harm3.frequency.setValueAtTime(C3_FREQ * 3, now);
+    harm3.frequency.setValueAtTime(freq * 3, now);
     harm3.connect(harm3Gain);
     oscillators.push(harm3);
 
@@ -134,6 +141,22 @@ export function useDrone(audioContext: AudioContext | null): UseDroneReturn {
     },
     [audioContext]
   );
+
+  // Restart drone when frequency changes while playing
+  const prevFreqRef = useRef(frequency);
+  useEffect(() => {
+    if (frequency !== prevFreqRef.current && isDroning && audioContext) {
+      prevFreqRef.current = frequency;
+      // Quick restart: stop current, start new at updated freq
+      stopDrone();
+      // Wait for fade-out to complete, then restart
+      const timer = setTimeout(() => {
+        startDrone();
+      }, FADE_DURATION * 1000 + 100);
+      return () => clearTimeout(timer);
+    }
+    prevFreqRef.current = frequency;
+  }, [frequency, isDroning, audioContext, stopDrone, startDrone]);
 
   return { startDrone, stopDrone, isDroning, setDroneVolume };
 }

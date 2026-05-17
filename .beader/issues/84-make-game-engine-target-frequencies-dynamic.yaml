@@ -1,0 +1,33 @@
+---
+id: 84
+title: Make game engine target frequencies dynamic
+type: task
+status: closed
+priority: 2
+parent: 80
+blocked_by:
+- 81
+assignees:
+- gentle-comet
+created_at: 2026-05-17T05:01:45.178664447Z
+updated_at: 2026-05-17T05:06:33.153131526Z
+closed_at: 2026-05-17T05:06:33.153131074Z
+---
+
+Update `test-client/src/hooks/useGameEngine.ts` so TARGET_FREQUENCIES is computed from a configurable root frequency instead of being a hardcoded C3-based constant.
+
+**Changes:**
+- Add `targetFrequencies?: Record<Syllable, number>` to UseGameEngineOptions
+- If provided, use the passed-in frequencies; otherwise fall back to the current C3-based defaults
+- The `checkHit` return value's `targetFrequencyHz` should use the dynamic frequencies
+- Keep the `TARGET_FREQUENCIES` export for backward compat (or remove it if GameView computes them externally via computeScaleFrequencies)
+
+**File**: `test-client/src/hooks/useGameEngine.ts`
+**Depends on**: #81 (noteUtils.ts for computeScaleFrequencies)
+
+---
+COMMENT
+2026-05-17T05:06:27.604557947Z
+author: gentle-comet
+
+82

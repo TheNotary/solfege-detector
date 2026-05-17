@@ -1,0 +1,41 @@
+---
+id: 81
+title: Create note parsing utility (noteUtils.ts)
+type: task
+status: closed
+priority: 2
+parent: 80
+assignees:
+- gentle-comet
+created_at: 2026-05-17T05:01:09.185445681Z
+updated_at: 2026-05-17T05:03:49.035377070Z
+closed_at: 2026-05-17T05:03:49.035376348Z
+---
+
+Create a new file `test-client/src/utils/noteUtils.ts` with three pure functions:
+
+1. **parseNoteName(input: string): { frequency: number; name: string } | null**
+   - Parse note strings like "C3", "D#4", "Bb2", "F#5" into a frequency using standard equal temperament: `440 * 2^((midi - 69) / 12)`
+   - Handle sharps (#) and flats (b) in the input
+   - Return null for invalid/unparseable input
+   - Normalize the display name (e.g. "c3" → "C3")
+
+2. **foldToOctave(hz: number, rootHz: number): number**
+   - Fold any detected frequency into the octave range [rootHz, rootHz * 2)
+   - Formula: `rootHz * 2^(frac(log2(hz / rootHz)))` where frac() is the fractional part
+   - This ensures C3, C4, C5 all map to the same canonical frequency in the root octave
+
+3. **computeScaleFrequencies(rootHz: number): Record<Syllable, number>**
+   - Compute major scale target frequencies from the root using semitone intervals [0, 2, 4, 5, 7, 9, 11]
+   - Returns { do: rootHz, re: rootHz * 2^(2/12), mi: rootHz * 2^(4/12), ... }
+   - Import `Syllable` type from useGameEngine
+
+**File**: `test-client/src/utils/noteUtils.ts` (new)
+**No dependencies on other issues**
+
+---
+COMMENT
+2026-05-17T05:03:49.032319573Z
+author: gentle-comet
+
+81

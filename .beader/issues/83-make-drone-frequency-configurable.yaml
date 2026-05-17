@@ -1,0 +1,27 @@
+---
+id: 83
+title: Make drone frequency configurable
+type: task
+status: closed
+priority: 2
+parent: 80
+blocked_by:
+- 81
+assignees:
+- gentle-comet
+created_at: 2026-05-17T05:01:33.423174312Z
+updated_at: 2026-05-17T05:06:33.145386790Z
+closed_at: 2026-05-17T05:06:33.145386247Z
+---
+
+Update `test-client/src/hooks/useDrone.ts` to accept a configurable drone frequency instead of the hardcoded C3_FREQ (130.81 Hz).
+
+**Changes:**
+- Add a `frequency` parameter to the `useDrone` hook (replacing the hardcoded `C3_FREQ = 130.81` constant)
+- Compute harmonics relative to the passed frequency (2nd harmonic = freq * 2, 3rd = freq * 3)
+- Set the LFO vibrato on the fundamental at the passed frequency
+- If the drone is currently active and the frequency changes, stop the current oscillators and restart at the new frequency (seamless restart with fade-out/fade-in)
+- Keep the same API surface: startDrone, stopDrone, isDroning, setDroneVolume
+
+**File**: `test-client/src/hooks/useDrone.ts`
+**Depends on**: #81 (noteUtils.ts provides parseNoteName to compute frequency from user input)
