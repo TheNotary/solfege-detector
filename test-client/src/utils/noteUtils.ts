@@ -49,11 +49,17 @@ export function parseNoteName(
 /**
  * Fold any frequency into the octave starting at rootHz: [rootHz, rootHz × 2).
  * C3, C4, C5 all map to the same canonical frequency in the root octave.
+ *
+ * A tolerance of 1 semitone below each octave boundary prevents a pitch sung
+ * slightly flat from wrapping all the way up to Ti.  Anything within that
+ * tolerance snaps down to rootHz (Do).
  */
 export function foldToOctave(hz: number, rootHz: number): number {
   if (hz <= 0 || rootHz <= 0) return rootHz;
   const octavesFromRoot = Math.log2(hz / rootHz);
   const fractional = octavesFromRoot - Math.floor(octavesFromRoot);
+  // 1 semitone below the next octave = 11/12 of an octave
+  if (fractional >= 11 / 12) return rootHz;
   return rootHz * Math.pow(2, fractional);
 }
 

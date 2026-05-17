@@ -38,7 +38,7 @@ export default function GameView(_props: GameViewProps) {
   const sentNoteIds = useRef<Set<number>>(new Set());
 
   // Root note configuration
-  const [rootNote, setRootNote] = useState("C3");
+  const [rootNote, setRootNote] = useState("E3");
   const [rootFrequencyHz, setRootFrequencyHz] = useState(DEFAULT_ROOT_HZ);
   const scaleFrequencies = useMemo(
     () => computeScaleFrequencies(rootFrequencyHz),
@@ -249,7 +249,6 @@ export default function GameView(_props: GameViewProps) {
               className="root-note-input"
               value={rootNote}
               onChange={(e) => handleRootNoteChange(e.target.value)}
-              placeholder="C3"
             />
           </div>
           <div className="drone-control">
