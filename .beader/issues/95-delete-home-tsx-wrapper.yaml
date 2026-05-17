@@ -1,0 +1,24 @@
+---
+id: 95
+title: Delete Home.tsx wrapper
+type: task
+status: closed
+priority: 3
+parent: 87
+blocked_by:
+- 90
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:16:58.843533910Z
+updated_at: 2026-05-17T15:23:40.286076310Z
+closed_at: 2026-05-17T15:23:40.286075373Z
+---
+
+Delete views/Home.tsx — it only renders GameView and is no longer needed now that MainMenu is the root route and GameView is at /play directly. Clean up any remaining imports.
+
+---
+COMMENT
+2026-05-17T15:23:40.277755591Z
+author: fearless-whale
+
+Deleted views/Home.tsx. No remaining imports — App.tsx was already updated to use MainMenu.

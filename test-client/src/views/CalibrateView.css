@@ -1,0 +1,78 @@
+.calibrate-view {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #0a0a1a;
+  display: flex;
+  flex-direction: column;
+  font-family: monospace;
+  user-select: none;
+  color: #e0e8ff;
+}
+
+.calibrate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.calibrate-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.calibrate-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.calibrate-tab {
+  padding: 0.4rem 1rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.calibrate-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.calibrate-tab.active {
+  background: rgba(0, 200, 255, 0.1);
+  border-color: rgba(0, 200, 255, 0.35);
+  color: #e0e8ff;
+}
+
+.back-btn {
+  padding: 0.4rem 1rem;
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.calibrate-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

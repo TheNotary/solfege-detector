@@ -1,0 +1,31 @@
+---
+id: 92
+title: Create useGameSettings hook
+type: task
+status: closed
+priority: 1
+parent: 87
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:16:39.239390258Z
+updated_at: 2026-05-17T15:19:58.736677240Z
+closed_at: 2026-05-17T15:19:58.736676305Z
+---
+
+Create hooks/useGameSettings.ts — a custom React hook backed by localStorage that stores and retrieves game settings:
+- speed (BPM, default 30)
+- acceleration (responsiveness, default 1.0)
+- rootNote (string, default 'E3')
+- droneVolume (number, default 0.15)
+- showDebug (boolean, default true)
+- audioLatencyMs (number, default 0 — written by calibration)
+- displayLatencyMs (number, default 0 — written by calibration)
+
+Exposes: settings object, updateSetting(key, value), resetToDefaults(). Reads from localStorage on mount, writes on update. Use a single localStorage key (e.g., 'solfege-settings') storing a JSON object.
+
+---
+COMMENT
+2026-05-17T15:19:58.728481008Z
+author: fearless-whale
+
+Created hooks/useGameSettings.ts with useSyncExternalStore for shared snapshot across components. Stores speed, acceleration, rootNote, droneVolume, showDebug, audioLatencyMs, displayLatencyMs in localStorage under 'solfege-settings' key. Exposes settings, updateSetting, updateSettings, resetToDefaults. TypeScript compiles clean.

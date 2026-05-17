@@ -25,7 +25,7 @@ export interface Score {
 /** Crosshair position as % from the left edge. */
 export const CROSSHAIR_X = 20;
 /** Half-width of the hit zone around the crosshair (%). */
-const HIT_ZONE_HALF = 6;
+export const HIT_ZONE_HALF = 6;
 
 const DEFAULT_SPEED = 30; // notes per minute
 const MIN_SPEED = 10;
@@ -56,6 +56,12 @@ export interface UseGameEngineOptions {
   stopNoteCapture?: () => ArrayBuffer | null;
   /** Dynamic target frequencies per syllable (overrides C3 defaults). */
   targetFrequencies?: Record<Syllable, number>;
+  /** Initial speed in BPM (overrides DEFAULT_SPEED). */
+  initialSpeed?: number;
+  /** Combined latency offset in ms (audio + display). Shifts the hit-zone
+   *  center so notes are evaluated for hits earlier, compensating for
+   *  system + player latency. Negative values shift the other way. */
+  latencyOffsetMs?: number;
 }
 
 export interface UseGameEngineReturn {
@@ -63,8 +69,11 @@ export interface UseGameEngineReturn {
   speed: number;
   setSpeed: (s: number) => void;
   score: Score;
-  /** Call every frame with current volume. Returns hit syllable or null. */
-  checkHit: (isSounding: boolean) => {
+  /** Call every frame with current volume. Returns hit syllable or null.
+   *  @param hitZoneHalf Override the fixed hit-zone half-width (%) with a
+   *                     displacement-derived value so notes must fall within
+   *                     the waveform's actual swing. */
+  checkHit: (isSounding: boolean, hitZoneHalf?: number) => {
     syllable: Syllable;
     noteId: number;
     targetFrequencyHz: number;
@@ -77,13 +86,17 @@ export interface UseGameEngineReturn {
 let nextNoteId = 1;
 
 export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineReturn {
+  const initSpeed = options?.initialSpeed ?? DEFAULT_SPEED;
+  const latencyOffsetMs = options?.latencyOffsetMs ?? 0;
   const [notes, setNotes] = useState<GameNote[]>([]);
-  const [speed, setSpeedState] = useState(DEFAULT_SPEED);
+  const [speed, setSpeedState] = useState(initSpeed);
   const [score, setScore] = useState<Score>({ hits: 0, total: 0 });
   const [isRunning, setIsRunning] = useState(false);
 
   const notesRef = useRef<GameNote[]>([]);
-  const speedRef = useRef(DEFAULT_SPEED);
+  const speedRef = useRef(initSpeed);
+  const latencyOffsetMsRef = useRef(latencyOffsetMs);
+  latencyOffsetMsRef.current = latencyOffsetMs;
   const scoreRef = useRef<Score>({ hits: 0, total: 0 });
   const rafRef = useRef<number | null>(null);
   const lastSpawnRef = useRef(0);
@@ -106,14 +119,26 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
   }, []);
 
   const checkHit = useCallback(
-    (isSounding: boolean): { syllable: Syllable; noteId: number; targetFrequencyHz: number } | null => {
+    (isSounding: boolean, hitZoneHalf: number = HIT_ZONE_HALF): { syllable: Syllable; noteId: number; targetFrequencyHz: number } | null => {
       if (!isSounding) return null;
+
+      // Compute effective crosshair center shifted by latency offset.
+      // Convert latencyOffsetMs → percentage shift based on current speed.
+      const bpm = speedRef.current;
+      const spawnInterval = 60 / bpm;
+      const travelTime = spawnInterval * 3; // seconds to cross 110% width
+      const pctPerMs = 110 / (travelTime * 1000);
+      const offsetPct = latencyOffsetMsRef.current * pctPerMs;
+      // Shift center to the right so notes are evaluated earlier (before
+      // they visually reach the crosshair), compensating for latency.
+      const effectiveCenter = CROSSHAIR_X + offsetPct;
+
       const current = notesRef.current;
       for (let i = 0; i < current.length; i++) {
         const note = current[i];
         if (
           note.state === "sliding" &&
-          Math.abs(note.x - CROSSHAIR_X) <= HIT_ZONE_HALF
+          Math.abs(note.x - effectiveCenter) <= hitZoneHalf
         ) {
           note.state = "hit";
           scoreRef.current = {
@@ -178,6 +203,11 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
       const travelTime = spawnInterval * 3;
       const pxPerSec = 110 / travelTime;
 
+      // Effective crosshair center shifted by latency calibration offset
+      const pctPerMs = pxPerSec / 1000;
+      const loopOffsetPct = latencyOffsetMsRef.current * pctPerMs;
+      const effectiveCenter = CROSSHAIR_X + loopOffsetPct;
+
       // Spawn new notes
       if (timestamp - lastSpawnRef.current >= spawnInterval * 1000) {
         const syllable = SOLFEGE_SCALE[sequenceIdxRef.current % SOLFEGE_SCALE.length];
@@ -202,7 +232,7 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
           note.x -= pxPerSec * dt;
 
           // Stop audio capture when hit note exits the left side of the hit zone
-          const hitZoneLeft = CROSSHAIR_X - HIT_ZONE_HALF;
+          const hitZoneLeft = effectiveCenter - HIT_ZONE_HALF;
           if (note.captureStarted && !note.audioSegment && prevX >= hitZoneLeft && note.x < hitZoneLeft) {
             const segment = stopNoteCaptureRef.current?.() ?? null;
             if (segment) {
@@ -225,8 +255,8 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
         note.x -= pxPerSec * dt;
 
         // Hit zone entry: note just crossed into the zone from the right
-        const hitZoneRight = CROSSHAIR_X + HIT_ZONE_HALF;
-        const hitZoneLeft = CROSSHAIR_X - HIT_ZONE_HALF;
+        const hitZoneRight = effectiveCenter + HIT_ZONE_HALF;
+        const hitZoneLeft = effectiveCenter - HIT_ZONE_HALF;
         if (!note.captureStarted && prevX > hitZoneRight && note.x <= hitZoneRight) {
           note.captureStarted = true;
           startNoteCaptureRef.current?.();

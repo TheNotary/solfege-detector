@@ -1,0 +1,31 @@
+---
+id: 93
+title: Create ConfigView screen
+type: task
+status: closed
+priority: 1
+parent: 87
+blocked_by:
+- 92
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:16:45.955225758Z
+updated_at: 2026-05-17T15:22:03.829353943Z
+closed_at: 2026-05-17T15:22:03.829353109Z
+---
+
+Create views/ConfigView.tsx — renders the game configuration controls currently found in GameView's HUD:
+- Speed slider (10-120 BPM)
+- Responsiveness slider (0.1-5.0)
+- Root note text input (e.g., 'E3')
+- Drone volume slider (0-0.3)
+- Debug toggle checkbox
+
+Centered form layout. 'Save' button writes values to localStorage via useGameSettings and navigates back to menu (/). 'Cancel' button discards changes and navigates back to menu. Reads initial values from useGameSettings on mount.
+
+---
+COMMENT
+2026-05-17T15:22:03.821067086Z
+author: fearless-whale
+
+Created views/ConfigView.tsx + ConfigView.css. Renders speed slider, responsiveness slider, root note input, drone volume slider, debug toggle in a centered form. Uses local draft state; Save persists to localStorage via useGameSettings and navigates to /. Cancel discards.

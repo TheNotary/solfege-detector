@@ -25,6 +25,7 @@ recorded_notes/     Captured .wav + .metadata training data (gitignored)
 
 The test-client presents a rhythm-game interface:
 
+- **Main menu** — Play Game, Calibrate Latency, Configurations; Esc returns to menu from gameplay
 - **Sliding notes** ride an invisible staff from right to left, following an ascending solfege scale (do→re→mi→fa→sol→la→ti)
 - **Crosshair** marks when to sing — notes in the zone light up when the player makes sound
 - **Confetti burst** fires when the microphone detects any sound while a note is in the crosshair (client-side volume detection for instant feedback)
@@ -32,6 +33,8 @@ The test-client presents a rhythm-game interface:
 - **Per-note audio capture** — the client accumulates audio while a note is in the hit zone and sends it to the server via the two-frame WebSocket protocol
 - **Speed slider** controls note spawn rate (10–120 BPM)
 - **Backend recording** — per-note audio (onset-trimmed) is the primary capture path; the rolling recording buffer (~3 seconds around each event) is used as a fallback. Both save `.wav` + `.metadata` files to `recorded_notes/`
+- **Latency calibration** — two-phase calibration: audio input latency (say "pop" with synthesized clicks) and display latency (press spacebar when note reaches crosshair). Offsets shift the hit-zone timing during gameplay
+- **Persistent settings** — speed, responsiveness, root note, drone volume, debug mode, and calibration offsets are saved to localStorage
 
 ## Quick Start
 

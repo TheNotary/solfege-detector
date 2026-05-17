@@ -1,0 +1,24 @@
+---
+id: 96
+title: Create CalibrateView container
+type: task
+status: closed
+priority: 1
+parent: 88
+blocked_by:
+- 92
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:17:05.598266861Z
+updated_at: 2026-05-17T15:22:49.230364457Z
+closed_at: 2026-05-17T15:22:49.230363626Z
+---
+
+Create views/CalibrateView.tsx — container view with two sub-screens navigated via internal React state (not routes): Audio Latency and Display Latency. Shows a tab/step indicator at the top. 'Back to Menu' button always visible, navigates to /. Each tab has a 'Skip' button to advance to the next phase or return to menu.
+
+---
+COMMENT
+2026-05-17T15:22:49.218197211Z
+author: fearless-whale
+
+Created views/CalibrateView.tsx + CalibrateView.css with Audio/Display tabs. Also created stub components/AudioCalibration.tsx and components/DisplayCalibration.tsx with Skip buttons. Stubs will be replaced when issues #97 and #99 are implemented.

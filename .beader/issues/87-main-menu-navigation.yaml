@@ -1,0 +1,41 @@
+---
+id: 87
+title: Main Menu Navigation
+type: feature
+status: closed
+priority: 1
+parent: 26
+created_at: 2026-05-17T15:15:48.585145335Z
+updated_at: 2026-05-17T15:25:39.585351147Z
+closed_at: 2026-05-17T15:25:39.585350209Z
+---
+
+## Summary
+
+Add a main menu with routing to Play Game, Calibrate Latency, and Configurations screens. Move HUD controls to a persistent Config screen with Save/Cancel and localStorage persistence. Esc returns to menu during gameplay.
+
+## User Message
+
+We need a main-menu that shows the options: Play Game, Calibrate Latency, Configurations. Show existing HUD controls on the configuration screen with Save/Cancel. Esc during gameplay returns to menu.
+
+## Plan
+
+### Phase A — Routing & Menu Shell
+1. Create `views/MainMenu.tsx` — full-screen menu with 3 buttons, dark game aesthetic
+2. Update `App.tsx` routes — `/` → MainMenu, `/play` → GameView, `/calibrate` → CalibrateView, `/config` → ConfigView. Remove Home.tsx wrapper
+3. Add Esc-key handler in `GameView.tsx` — stops game/recording/drone, navigates to `/`
+
+### Phase B — Configuration Screen
+4. Create `hooks/useGameSettings.ts` — localStorage-backed hook (speed, acceleration, rootNote, droneVolume, showDebug, audioLatencyMs, displayLatencyMs)
+5. Create `views/ConfigView.tsx` — HUD controls in centered form with Save/Cancel
+6. Refactor `GameView.tsx` — initialize from useGameSettings(), keep HUD for live tweaking (ephemeral)
+
+### Phase C — Cleanup
+7. Delete `views/Home.tsx`
+
+---
+COMMENT
+2026-05-17T15:25:39.573894416Z
+author: fearless-whale
+
+All sub-issues complete: MainMenu view, App.tsx routing, Esc-key handler, useGameSettings hook, ConfigView screen, GameView refactor, Home.tsx deletion. Feature is fully implemented.

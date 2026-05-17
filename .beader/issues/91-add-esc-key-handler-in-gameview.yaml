@@ -1,0 +1,24 @@
+---
+id: 91
+title: Add Esc-key handler in GameView
+type: task
+status: closed
+priority: 2
+parent: 87
+blocked_by:
+- 90
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:16:31.306520191Z
+updated_at: 2026-05-17T15:24:11.882390237Z
+closed_at: 2026-05-17T15:24:11.882389613Z
+---
+
+Add a keydown listener in GameView.tsx for the Escape key. When pressed: stop the game (if running), stop recording, stop the drone, and navigate('/') back to the main menu. Use react-router-dom useNavigate(). Ensure the listener is cleaned up on unmount.
+
+---
+COMMENT
+2026-05-17T15:24:11.875753774Z
+author: fearless-whale
+
+Added useNavigate + Esc keydown listener in GameView. On Escape: stops game, stops recording, clears sentNoteIds, stops drone, and navigates to /. Listener cleaned up on unmount.

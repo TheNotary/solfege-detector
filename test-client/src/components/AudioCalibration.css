@@ -1,0 +1,136 @@
+.audio-calibration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  font-family: monospace;
+  color: #e0e8ff;
+}
+
+.audio-calibration h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.audio-calibration .instructions {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Countdown / click indicator */
+.click-indicator {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  transition: background 0.05s, box-shadow 0.05s;
+  background: rgba(255, 255, 255, 0.04);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.click-indicator.flash {
+  background: rgba(0, 200, 255, 0.25);
+  border-color: rgba(0, 200, 255, 0.6);
+  box-shadow: 0 0 40px rgba(0, 200, 255, 0.3);
+}
+
+.click-indicator.countdown {
+  color: rgba(0, 200, 255, 0.8);
+}
+
+/* Round results list */
+.round-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.round-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.round-row.outlier {
+  color: rgba(255, 100, 100, 0.7);
+  text-decoration: line-through;
+}
+
+/* Result summary */
+.result-summary {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(0, 200, 255, 0.8);
+}
+
+/* Actions */
+.calibration-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.calibration-actions button {
+  padding: 0.5rem 1.5rem;
+  font-family: monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cal-start-btn {
+  background: rgba(0, 200, 255, 0.12);
+  border: 1px solid rgba(0, 200, 255, 0.35);
+  color: #e0e8ff;
+}
+
+.cal-start-btn:hover {
+  background: rgba(0, 200, 255, 0.22);
+  border-color: rgba(0, 200, 255, 0.55);
+}
+
+.cal-save-btn {
+  background: rgba(50, 200, 100, 0.15);
+  border: 1px solid rgba(50, 200, 100, 0.4);
+  color: #e0e8ff;
+}
+
+.cal-save-btn:hover {
+  background: rgba(50, 200, 100, 0.25);
+}
+
+.cal-skip-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cal-skip-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cal-retry-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cal-retry-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}

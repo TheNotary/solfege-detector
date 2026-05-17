@@ -1,0 +1,25 @@
+---
+id: 90
+title: Update App.tsx routing
+type: task
+status: closed
+priority: 1
+parent: 87
+blocked_by:
+- 89
+- 92
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:16:24.132173343Z
+updated_at: 2026-05-17T15:23:15.454720489Z
+closed_at: 2026-05-17T15:23:15.454719865Z
+---
+
+Update App.tsx to add routes: / → MainMenu, /play → GameView, /calibrate → CalibrateView, /config → ConfigView. Remove the Home.tsx import and route (it just renders GameView and is now redundant). Import the new view components.
+
+---
+COMMENT
+2026-05-17T15:23:15.442356771Z
+author: fearless-whale
+
+Updated App.tsx routing: / → MainMenu, /play → GameView, /calibrate → CalibrateView, /config → ConfigView. Removed Home import.

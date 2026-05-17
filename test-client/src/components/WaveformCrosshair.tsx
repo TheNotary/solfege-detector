@@ -8,6 +8,8 @@ interface WaveformCrosshairProps {
 }
 
 const CANVAS_WIDTH = 160;
+/** Max horizontal displacement in CSS pixels (used by hit-zone logic). */
+export const WAVEFORM_MAX_AMPLITUDE_PX = CANVAS_WIDTH * 0.45;
 const CYAN = "rgba(0, 200, 255, 1)";
 const CYAN_GLOW = "rgba(0, 200, 255, 0.4)";
 

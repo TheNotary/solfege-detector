@@ -1,0 +1,25 @@
+---
+id: 94
+title: Refactor GameView to use saved settings
+type: task
+status: closed
+priority: 2
+parent: 87
+blocked_by:
+- 92
+- 90
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:16:52.498164937Z
+updated_at: 2026-05-17T15:25:23.018821871Z
+closed_at: 2026-05-17T15:25:23.018820829Z
+---
+
+Refactor GameView.tsx to initialize speed, acceleration, rootNote, droneVolume, and showDebug from useGameSettings() instead of hardcoded defaults. The HUD sliders remain visible during gameplay for real-time tweaking, but their initial values come from the saved config. Changes during gameplay are ephemeral (not auto-saved back to localStorage). This ensures the Config screen values are respected as starting points.
+
+---
+COMMENT
+2026-05-17T15:25:23.011658550Z
+author: fearless-whale
+
+Refactored GameView to initialize speed, acceleration, rootNote, droneVolume, showDebug from useGameSettings() saved values. Added initialSpeed option to useGameEngine. HUD sliders remain for live tweaking; changes during gameplay are ephemeral.

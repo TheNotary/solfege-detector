@@ -1,0 +1,49 @@
+---
+id: 88
+title: Latency Calibration
+type: feature
+status: closed
+priority: 1
+parent: 26
+created_at: 2026-05-17T15:16:09.002842068Z
+updated_at: 2026-05-17T15:30:45.280893275Z
+closed_at: 2026-05-17T15:30:45.280892545Z
+---
+
+## Summary
+
+Two-phase calibration flow: (1) Audio input latency — synthesized clicks at 100 BPM, user says "pop" in sync, onset detection measures the delta; (2) Display latency — note slides across screen, user presses spacebar at crosshair, delta measured. 10 rounds each, median result stored in localStorage. Hit-zone shifts during gameplay to compensate.
+
+## User Message
+
+We need a way to calibrate the input latency of the player's microphone. We should use sound samples that are played, and the user is asked to say "pop" "pop" "pop" along with the percussive sounds. We also need a way to calibrate the monitor's latency, by showing notes sliding across the screen. We ask the user to press the spacebar when the note is in the crosshairs.
+
+## Plan
+
+### Phase D — Audio Input Latency Calibration
+1. Create `views/CalibrateView.tsx` — container with Audio/Display tabs, Back to Menu button
+2. Create `components/AudioCalibration.tsx` — 3-2-1 countdown, 10 clicks at 600ms, onset detection via RAF-polled AnalyserNode (~16ms resolution), delta measurement, median, Save/Retry
+3. Create `hooks/useClickTrack.ts` — OscillatorNode 1000 Hz 20ms burst, GainNode envelope, onClick(audioContextTime) callback
+
+### Phase E — Display Latency Calibration
+4. Create `components/DisplayCalibration.tsx` — single note slides right-to-left, spacebar records timing, ground truth from animation math, 10 rounds, median, Save/Retry
+5. Wire CalibrateView.tsx tabs — Audio first, Display second, Skip button on each
+
+### Phase F — Apply Offsets During Gameplay
+6. Modify `useGameEngine.ts` hit-zone logic — convert audioLatencyMs + displayLatencyMs to pixel offset, shift effectiveCenterX
+7. Show calibration status on MainMenu — "Audio: 45ms, Display: 32ms" or "Not calibrated"
+
+### Decisions
+- localStorage only — no backend changes
+- Synthesized clicks — OscillatorNode 1000 Hz, 20ms, frame-accurate via AudioContext.currentTime
+- 10 rounds, 100 BPM (600ms), median aggregation
+- Hit-zone shift (not note spawn shift)
+- RAF-polled onset detection for ~16ms resolution during calibration
+- Negative calibration values are valid (user anticipation)
+
+---
+COMMENT
+2026-05-17T15:30:45.271001099Z
+author: fearless-whale
+
+All sub-issues complete: CalibrateView container, AudioCalibration component, useClickTrack hook, DisplayCalibration component, hit-zone offset integration. Feature fully implemented.

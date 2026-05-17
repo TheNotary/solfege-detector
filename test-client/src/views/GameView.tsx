@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./GameView.css";
 import NoteSprite from "../components/NoteSprite";
 import PitchBar from "../components/PitchBar";
 import { freqToY, buildNotePoints } from "../components/PitchBar";
-import { useGameEngine, CROSSHAIR_X, syllableY } from "../hooks/useGameEngine";
+import { useGameEngine, CROSSHAIR_X, HIT_ZONE_HALF, syllableY } from "../hooks/useGameEngine";
+import { useWaveformDisplacement } from "../hooks/useWaveformDisplacement";
 import { useVolumeDetection } from "../hooks/useVolumeDetection";
 import { useAudioStream } from "../hooks/useAudioStream";
 import { useWebSocket } from "../hooks/useWebSocket";
@@ -13,9 +15,10 @@ import { useSmoothedPitch } from "../hooks/useSmoothedPitch";
 import { useDrone } from "../hooks/useDrone";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import OnsetFlash from "../components/OnsetFlash";
-import WaveformCrosshair from "../components/WaveformCrosshair";
+import WaveformCrosshair, { WAVEFORM_MAX_AMPLITUDE_PX } from "../components/WaveformCrosshair";
 import AppConfig from "../AppConfig";
 import { parseNoteName, foldToOctave, computeScaleFrequencies } from "../utils/noteUtils";
+import { useGameSettings } from "../hooks/useGameSettings";
 
 const SOLFEGE_LABELS = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
 
@@ -36,10 +39,14 @@ const DEFAULT_ROOT_HZ = 130.81; // C3
 export default function GameView(_props: GameViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sentNoteIds = useRef<Set<number>>(new Set());
+  const { settings } = useGameSettings();
 
-  // Root note configuration
-  const [rootNote, setRootNote] = useState("E3");
-  const [rootFrequencyHz, setRootFrequencyHz] = useState(DEFAULT_ROOT_HZ);
+  // Root note configuration — initialised from saved settings
+  const [rootNote, setRootNote] = useState(() => settings.rootNote);
+  const [rootFrequencyHz, setRootFrequencyHz] = useState(() => {
+    const parsed = parseNoteName(settings.rootNote);
+    return parsed ? parsed.frequency : DEFAULT_ROOT_HZ;
+  });
   const scaleFrequencies = useMemo(
     () => computeScaleFrequencies(rootFrequencyHz),
     [rootFrequencyHz],
@@ -106,7 +113,13 @@ export default function GameView(_props: GameViewProps) {
     startGame,
     stopGame,
     isRunning,
-  } = useGameEngine({ startNoteCapture, stopNoteCapture, targetFrequencies: scaleFrequencies });
+  } = useGameEngine({
+    startNoteCapture,
+    stopNoteCapture,
+    targetFrequencies: scaleFrequencies,
+    initialSpeed: settings.speed,
+    latencyOffsetMs: settings.audioLatencyMs + settings.displayLatencyMs,
+  });
 
   const { isQualitySample } = useAudioQuality(analyserNode);
   const { pitchHz } = usePitchDetection(analyserNode);
@@ -116,7 +129,7 @@ export default function GameView(_props: GameViewProps) {
   const foldedPitchHz = pitchHz !== null ? foldToOctave(pitchHz, rootFrequencyHz) : null;
 
   // Pitch indicator smoothing
-  const [acceleration, setAcceleration] = useState(1.0);
+  const [acceleration, setAcceleration] = useState(() => settings.acceleration);
   const { displayPitchHz, opacity: pitchOpacity } = useSmoothedPitch(
     foldedPitchHz,
     acceleration,
@@ -124,7 +137,7 @@ export default function GameView(_props: GameViewProps) {
   );
 
   // Debug HUD toggle
-  const [showDebug, setShowDebug] = useState(true);
+  const [showDebug, setShowDebug] = useState(() => settings.showDebug);
 
   // 100ms sliding-window pitch average
   const pitchBufferRef = useRef<Array<{ hz: number; t: number }>>([]);
@@ -151,12 +164,25 @@ export default function GameView(_props: GameViewProps) {
     audioContext,
     rootFrequencyHz,
   );
-  const [droneVolume, setDroneVolumeState] = useState(0.15);
+  const [droneVolume, setDroneVolumeState] = useState(() => settings.droneVolume);
 
-  // Check for hits every frame when running
+  // Waveform displacement → displacement-based hit zone
+  const waveformDisplacement = useWaveformDisplacement(analyserNode, isRecording);
+
+  // Check for hits every frame when running.
+  // The effective hit zone half-width is derived from the waveform's average
+  // displacement so that notes must fall within the visible waveform swing.
   useEffect(() => {
     if (!isRunning || !isRecording) return;
-    const hit = checkHit(isSounding && isQualitySample);
+
+    // Convert displacement (0-1) → pixels → % of container width
+    const containerWidth = containerRef.current?.clientWidth ?? 1;
+    const displacementPx = waveformDisplacement * WAVEFORM_MAX_AMPLITUDE_PX;
+    const displacementPct = (displacementPx / containerWidth) * 100;
+    // Clamp to the full capture zone so we never exceed it
+    const effectiveHalf = Math.min(displacementPct, HIT_ZONE_HALF);
+
+    const hit = checkHit(isSounding && isQualitySample, effectiveHalf);
     if (hit) {
       // Mark as hit but DON'T send note_event yet — wait for zone exit
       // so we have the full audio capture.  sentNoteIds is NOT updated
@@ -192,6 +218,8 @@ export default function GameView(_props: GameViewProps) {
     }
   }, [notes, sendNoteEvent, pitchHz, scaleFrequencies]);
 
+  const navigate = useNavigate();
+
   const handleToggle = useCallback(() => {
     if (isRunning) {
       stopGame();
@@ -202,6 +230,23 @@ export default function GameView(_props: GameViewProps) {
       startRecording();
     }
   }, [isRunning, startGame, stopGame, startRecording, stopRecording]);
+
+  // Esc key → stop everything and return to main menu
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isRunning) {
+          stopGame();
+          stopRecording();
+          sentNoteIds.current.clear();
+        }
+        if (isDroning) stopDrone();
+        navigate("/");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isRunning, isDroning, stopGame, stopRecording, stopDrone, navigate]);
 
   return (
     <div className="game-container" ref={containerRef}>

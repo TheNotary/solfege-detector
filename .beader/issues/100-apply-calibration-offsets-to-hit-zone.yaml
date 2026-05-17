@@ -1,0 +1,31 @@
+---
+id: 100
+title: Apply calibration offsets to hit-zone
+type: task
+status: closed
+priority: 1
+parent: 88
+blocked_by:
+- 97
+- 99
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:17:52.913260833Z
+updated_at: 2026-05-17T15:30:33.609980614Z
+closed_at: 2026-05-17T15:30:33.609979989Z
+---
+
+Modify useGameEngine.ts hit-zone logic to incorporate calibration offsets. Currently uses CROSSHAIR_X +/- HIT_ZONE_HALF as a spatial window. With calibration:
+1. Read audioLatencyMs and displayLatencyMs from useGameSettings at game start
+2. Compute totalLatencyMs = audioLatencyMs + displayLatencyMs
+3. Convert to pixel offset: totalOffsetPx = totalLatencyMs * noteSpeedPxPerMs (derived from current BPM and travel distance)
+4. Shift effective hit-zone center: effectiveCenterX = CROSSHAIR_X - totalOffsetPx
+5. Notes are evaluated for hits slightly before they visually reach the crosshair, compensating for system + player latency
+6. Handle negative offsets (anticipation) — shifts in the opposite direction
+
+---
+COMMENT
+2026-05-17T15:30:33.598457315Z
+author: fearless-whale
+
+Added latencyOffsetMs option to useGameEngine. checkHit now computes effectiveCenter = CROSSHAIR_X + offsetPct (based on current speed) so the hit detection window shifts to compensate for calibrated audio+display latency. Game loop zone entry/exit logic also uses effectiveCenter. GameView passes settings.audioLatencyMs + settings.displayLatencyMs. Handles negative offsets (anticipation) correctly.

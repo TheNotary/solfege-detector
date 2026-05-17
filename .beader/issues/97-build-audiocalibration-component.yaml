@@ -1,0 +1,39 @@
+---
+id: 97
+title: Build AudioCalibration component
+type: task
+status: closed
+priority: 1
+parent: 88
+blocked_by:
+- 96
+- 98
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:17:20.327175219Z
+updated_at: 2026-05-17T15:27:29.172043663Z
+closed_at: 2026-05-17T15:27:29.172043038Z
+---
+
+Create components/AudioCalibration.tsx — the audio input latency calibration screen:
+
+**Flow:**
+1. 3-2-1 countdown (gives user time to ready mic)
+2. 10 synthesized clicks play at 100 BPM (every 600ms)
+3. User says "pop" in sync with each click
+4. Onset detection measures delta between click playback and detected pop
+
+**Microphone capture:** Reuse useAudioStream to get the AnalyserNode. For calibration onset detection, use a dedicated RAF-polled RMS check from AnalyserNode.getFloatTimeDomainData() for ~16ms resolution (NOT the game's ScriptProcessorNode chunk pipeline which has ~93ms granularity).
+
+**Delta measurement:** For each click, record clickTimestamp from AudioContext.currentTime. When onset is detected, record onsetTimestamp via performance.now() (aligned to AudioContext.currentTime). Delta = onsetTimestamp - clickTimestamp. Collect up to 10 deltas.
+
+**Results UI:** Show each round's delta in a list, highlight outliers (> 2 stddev from median), display the median as the final offset. Save button writes audioLatencyMs to useGameSettings. Retry button resets and starts over.
+
+**Visual feedback:** Pulsing circle or flash on each click so user has a visual+audio cue.
+
+---
+COMMENT
+2026-05-17T15:27:29.164995845Z
+author: fearless-whale
+
+Replaced AudioCalibration stub with full implementation. Features: 3-2-1 countdown, 10 clicks at 600ms (100 BPM), RAF-polled onset detection (~16ms resolution) via AnalyserNode.getFloatTimeDomainData(), RMS threshold crossing detection, per-round delta display with outlier highlighting (MAD-based), median result, Save/Retry/Skip buttons. CSS in AudioCalibration.css. Clean compile.

@@ -1,0 +1,22 @@
+---
+id: 98
+title: Create useClickTrack hook
+type: task
+status: closed
+priority: 1
+parent: 88
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:17:29.063477987Z
+updated_at: 2026-05-17T15:21:16.501483912Z
+closed_at: 2026-05-17T15:21:16.501482976Z
+---
+
+Create hooks/useClickTrack.ts — encapsulates Web Audio API click synthesis for the audio calibration. Uses OscillatorNode (1000 Hz sine wave, 20ms duration) connected to a GainNode with a fast envelope (attack 1ms, release 19ms) for a percussive pop sound. API: start() begins playing clicks at configurable interval (default 600ms), stop() halts playback, onClick(audioContextTime: number) callback fires for each click with the precise AudioContext.currentTime. Accepts intervalMs and totalClicks as config. Cleans up AudioContext resources on stop/unmount.
+
+---
+COMMENT
+2026-05-17T15:21:16.490694305Z
+author: fearless-whale
+
+Created hooks/useClickTrack.ts — Web Audio click synthesizer. OscillatorNode 1000Hz sine, 20ms burst with GainNode fast envelope (1ms attack, 19ms release). Configurable intervalMs, totalClicks, frequencyHz, durationMs. onClick(audioTime, index) fires per click. onComplete fires when all clicks played. Clean compile.

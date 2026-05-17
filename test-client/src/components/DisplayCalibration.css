@@ -1,0 +1,87 @@
+.display-calibration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 640px;
+  font-family: monospace;
+  color: #e0e8ff;
+}
+
+.display-calibration h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.display-calibration .instructions {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Sliding note area */
+.slide-area {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.slide-staff-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.slide-crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: rgba(0, 200, 255, 0.5);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.slide-crosshair-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(0, 200, 255, 0.04);
+  border-left: 1px solid rgba(0, 200, 255, 0.08);
+  border-right: 1px solid rgba(0, 200, 255, 0.08);
+}
+
+.slide-note {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2rem;
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+  z-index: 3;
+  transition: none;
+}
+
+.slide-note.ghost {
+  color: rgba(0, 200, 255, 0.4);
+  text-shadow: 0 0 12px rgba(0, 200, 255, 0.3);
+}
+
+.press-hint {
+  position: absolute;
+  bottom: 8px;
+  width: 100%;
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.25);
+}

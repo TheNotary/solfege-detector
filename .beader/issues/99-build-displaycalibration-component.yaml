@@ -1,0 +1,38 @@
+---
+id: 99
+title: Build DisplayCalibration component
+type: task
+status: closed
+priority: 1
+parent: 88
+blocked_by:
+- 96
+assignees:
+- fearless-whale
+created_at: 2026-05-17T15:17:42.878890768Z
+updated_at: 2026-05-17T15:28:37.986541693Z
+closed_at: 2026-05-17T15:28:37.986540755Z
+---
+
+Create components/DisplayCalibration.tsx — the display latency calibration screen:
+
+**Simplified staff:** Single horizontal line with a crosshair at 20% from left (reuses CROSSHAIR_X constant from useGameEngine).
+
+**Sliding note:** A single note (musical note symbol) slides from right to left at moderate speed (~40 BPM equivalent). Uses requestAnimationFrame loop — much simpler than useGameEngine (single note, no scoring, no spawning).
+
+**Spacebar listener:** keydown event handler on spacebar records performance.now() timestamp.
+
+**Ground truth:** The note's exact crossing time through the crosshair center is known from the animation math: noteSpawnTime + (CROSSHAIR_X / 100) * travelTimeMs. This is computed when the note is spawned.
+
+**Delta calculation:** spacebarTime - crosshairCrossingTime. Positive = user pressed late (display/reaction lag). Negative = user anticipated (valid). Collect 10 rounds.
+
+**Results UI:** List of per-round deltas, highlight outliers (> 2 stddev from median), display median as the final offset. Save button writes displayLatencyMs to useGameSettings. Retry button resets.
+
+**Visual feedback:** After each round, briefly show where the note was when spacebar was pressed (ghost/shadow) and where it should have been (at crosshair center) so the user can see their timing accuracy.
+
+---
+COMMENT
+2026-05-17T15:28:37.977603949Z
+author: fearless-whale
+
+Replaced DisplayCalibration stub with full implementation. Note slides right-to-left over 3s, user presses Spacebar when at crosshair. Ground truth from animation math. 10 rounds with 1.2s pause between. Ghost shows true crosshair position after each round. MAD-based outlier detection, median result. Save/Retry/Skip buttons. CSS in DisplayCalibration.css.
