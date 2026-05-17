@@ -10,14 +10,15 @@ describe("computeHitZoneGeometry", () => {
     expect(result.effectiveCenter).toBe(CROSSHAIR_X);
   });
 
-  it("positive latency shifts debug-hitzone to the right", () => {
+  it("positive latency shifts debug-hitzone to the left", () => {
     const result = computeHitZoneGeometry({
       ...BASE,
       audioLatencyMs: 200,
       displayLatencyMs: 50,
     });
     expect(result.offsetPct).toBeGreaterThan(0);
-    expect(result.effectiveCenter).toBeGreaterThan(CROSSHAIR_X);
+    expect(result.effectiveCenter).toBeLessThan(CROSSHAIR_X);
+    expect(result.effectiveCenter).toBeCloseTo(CROSSHAIR_X - result.offsetPct, 10);
   });
 
   it("offset is ~25% of zone width at typical latency", () => {
@@ -58,5 +59,37 @@ describe("computeHitZoneGeometry", () => {
     // Higher BPM → higher pctPerMs → LARGER offset (notes move faster)
     expect(fast.offsetPct).toBeGreaterThan(slow.offsetPct);
     expect(fast.offsetPct).toBeCloseTo(slow.offsetPct * 2, 10);
+  });
+
+  it("halfPct defaults to HIT_ZONE_HALF when no container width is given", () => {
+    const result = computeHitZoneGeometry(BASE);
+    expect(result.halfPct).toBe(HIT_ZONE_HALF);
+  });
+
+  it("debug box pixel-width matches 2 * crosshairHalfPx on a wide viewport", () => {
+    const containerWidthPx = 1920;
+    const crosshairHalfPx = 80;
+    const result = computeHitZoneGeometry({
+      ...BASE,
+      containerWidthPx,
+      crosshairHalfPx,
+    });
+    const debugBoxPx = (result.halfPct / 100) * containerWidthPx;
+    expect(debugBoxPx).toBeCloseTo(crosshairHalfPx, 3);
+  });
+
+  it("debug box pixel-width matches 2 * crosshairHalfPx on a narrow viewport", () => {
+    // Guards against the historical Math.min(visualHalfPct, HIT_ZONE_HALF) cap
+    // which truncated the debug zone on narrow viewports while the visual
+    // crosshair-zone stayed at 160px, producing a width mismatch.
+    const containerWidthPx = 800;
+    const crosshairHalfPx = 80;
+    const result = computeHitZoneGeometry({
+      ...BASE,
+      containerWidthPx,
+      crosshairHalfPx,
+    });
+    const debugBoxPx = (result.halfPct / 100) * containerWidthPx;
+    expect(debugBoxPx).toBeCloseTo(crosshairHalfPx, 3);
   });
 });

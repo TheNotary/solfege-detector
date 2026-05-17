@@ -2,13 +2,16 @@
 id: 111
 title: Update hitZoneGeometry tests for corrected direction + add width-parity test
 type: task
-status: todo
+status: in_progress
 priority: 1
 parent: 106
 blocked_by:
 - 107
+claimed_by: snappy-spark
+assignees:
+- snappy-spark
 created_at: 2026-05-17T17:24:18.236303878Z
-updated_at: 2026-05-17T17:24:44.791085938Z
+updated_at: 2026-05-17T17:25:24.892111170Z
 ---
 
 In `test-client/src/lib/hitZoneGeometry.test.ts`:
