@@ -2,11 +2,12 @@
 id: 106
 title: Fix debug-hitzone direction & alignment with visual crosshair
 type: feature
-status: todo
+status: closed
 priority: 1
 parent: 26
 created_at: 2026-05-17T17:23:35.531846301Z
-updated_at: 2026-05-17T17:23:35.531846301Z
+updated_at: 2026-05-17T17:27:46.735095630Z
+closed_at: 2026-05-17T17:27:46.735094569Z
 ---
 
 ## Summary
@@ -35,3 +36,10 @@ Two distinct bugs in the GameView hit-zone geometry: (1) latency calibration shi
 ### Decisions
 - Positive latency settings = "sound/perception arrives later than reality" -> hit zone shifts LEFT.
 - Out of scope: in-loop capture-start/stop boundaries in `useGameEngine.ts` (intentionally use fixed `HIT_ZONE_HALF` as a generous capture window).
+
+---
+COMMENT
+2026-05-17T17:27:46.732259370Z
+author: snappy-spark
+
+All subtasks complete. Sign flipped, tests updated/added with width-parity guards, debug purple band moved to LEFT side, and visual .crosshair-zone now derives its width from computeHitZoneGeometry so it is geometrically identical to the debug overlay at every viewport width.

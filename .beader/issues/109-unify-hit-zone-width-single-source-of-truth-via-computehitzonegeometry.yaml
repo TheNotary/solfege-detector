@@ -2,17 +2,17 @@
 id: 109
 title: 'Unify hit-zone width: single source of truth via computeHitZoneGeometry'
 type: feature
-status: in_progress
+status: closed
 priority: 1
 parent: 106
 blocked_by:
 - 107
 - 111
-claimed_by: snappy-spark
 assignees:
 - snappy-spark
 created_at: 2026-05-17T17:24:00.155508934Z
-updated_at: 2026-05-17T17:26:24.857724817Z
+updated_at: 2026-05-17T17:27:16.360875577Z
+closed_at: 2026-05-17T17:27:16.360874410Z
 ---
 
 Eliminate the visual mismatch between `.crosshair-zone` (160px CSS) and `.debug-hit-zone` (% from helper with cap).

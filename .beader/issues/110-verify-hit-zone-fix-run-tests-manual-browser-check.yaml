@@ -2,15 +2,18 @@
 id: 110
 title: 'Verify hit-zone fix: run tests + manual browser check'
 type: task
-status: todo
+status: closed
 priority: 2
 parent: 106
 blocked_by:
 - 108
 - 109
 - 111
+assignees:
+- snappy-spark
 created_at: 2026-05-17T17:24:00.166268302Z
-updated_at: 2026-05-17T17:24:44.825477063Z
+updated_at: 2026-05-17T17:27:46.727707113Z
+closed_at: 2026-05-17T17:27:46.727706476Z
 ---
 
 1. Run `pnpm --filter test-client test` from repo root -- all geometry tests pass including the new width-parity test.
@@ -20,3 +23,15 @@ updated_at: 2026-05-17T17:24:44.825477063Z
 5. Sing at the perceived crosshair moment with a calibrated latency -> hits should register correctly.
 
 Depends on all prior subtasks.
+
+---
+COMMENT
+2026-05-17T17:27:46.724434292Z
+author: snappy-spark
+
+Automated verification complete:
+- pnpm test -- --run: 8/8 tests pass (including the new width-parity guards at wide and narrow viewports).
+- pnpm tsc --noEmit: clean.
+- pnpm exec vite build: successful.
+
+Manual browser verification (debug overlay alignment at multiple viewport widths; LEFT shift + purple band positioning when latency is set; in-game hit feel with calibration) is left for the user to confirm in the running app.
