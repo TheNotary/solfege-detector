@@ -1,0 +1,25 @@
+---
+id: 123
+title: 'Phase 5: Settings toggle + calibration bypass'
+type: task
+status: todo
+priority: 2
+parent: 118
+blocked_by:
+- 122
+created_at: 2026-05-17T23:31:06.832411521Z
+updated_at: 2026-05-17T23:31:10.961491182Z
+---
+
+Expose user-facing control over the feedback canceller and ensure it doesn't corrupt latency calibration.
+
+Work:
+- Add `feedbackCancellation: boolean` (default `true`) to `test-client/src/hooks/useGameSettings.ts`, persisted to localStorage with safe migration for existing users.
+- Add a toggle in `test-client/src/views/ConfigView.tsx`: 'Cancel drone/metronome bleed from waveform' with a short helper noting it only affects on-screen waveform + hit-zone feedback, not the captured training audio.
+- In `test-client/src/views/CalibrateView.tsx`: ensure click bursts during calibration do **not** join the reference mix and the AEC is bypassed during calibration so the round-trip measurement stays raw.
+- When `audioInputLatencyMs` changes (after calibration), post `{type:'setLatency', ms}` to the worklet so the delay line re-aligns.
+
+Acceptance:
+- Toggle persists across reloads.
+- Toggle off → display behavior matches pre-feature.
+- Latency calibration result is consistent whether the toggle is on or off.

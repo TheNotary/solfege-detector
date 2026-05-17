@@ -15,6 +15,7 @@ import { usePitchDetection } from "../hooks/usePitchDetection";
 import { useSmoothedPitch } from "../hooks/useSmoothedPitch";
 import { useDrone } from "../hooks/useDrone";
 import { useMetronome } from "../hooks/useMetronome";
+import { useReferenceMix } from "../hooks/useReferenceMix";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import OnsetFlash from "../components/OnsetFlash";
 import WaveformCrosshair from "../components/WaveformCrosshair";
@@ -164,15 +165,17 @@ export default function GameView(_props: GameViewProps) {
   }, [pitchHz]);
 
   // Drone — plays at the configured root frequency
+  const referenceMix = useReferenceMix(audioContext);
   const { startDrone, stopDrone, isDroning, setDroneVolume } = useDrone(
     audioContext,
     rootFrequencyHz,
+    referenceMix,
   );
   const [droneVolume, setDroneVolumeState] = useState(() => settings.droneVolume);
 
   // Metronome — clicks aligned to the game's beat clock so the player knows
   // exactly when each sliding note will hit the crosshair.
-  const metronome = useMetronome(audioContext);
+  const metronome = useMetronome(audioContext, referenceMix);
   const [metronomeEnabled, setMetronomeEnabled] = useState(() => settings.metronomeEnabled);
   const [metronomeVolume, setMetronomeVolumeState] = useState(() => settings.metronomeVolume);
   const [metronomeOffsetMs, setMetronomeOffsetMs] = useState(() => settings.metronomeOffsetMs);

@@ -1,0 +1,29 @@
+---
+id: 121
+title: 'Phase 3: Wire filtered path through useAudioStream'
+type: feature
+status: todo
+priority: 2
+parent: 118
+blocked_by:
+- 119
+- 120
+created_at: 2026-05-17T23:30:45.893919880Z
+updated_at: 2026-05-17T23:31:10.953031632Z
+---
+
+Expose a parallel filtered mic path from `useAudioStream` without disturbing the existing raw path used by the backend.
+
+Work:
+- Extend `test-client/src/hooks/useAudioStream.ts` to accept `referenceNode: AudioNode | null`, `aecEnabled: boolean`, and `audioInputLatencyMs: number`.
+- After building the raw mic graph (source → analyser, source → scriptProcessor → destination), if `aecEnabled && referenceNode`:
+  - Create `AudioWorkletNode('aec-processor', { numberOfInputs: 2, ... })`.
+  - Connect `source → input0` and `referenceNode → input1`.
+  - Connect `aecNode → filteredAnalyserNode` (new `AnalyserNode`, `fftSize: 4096`).
+  - Forward worklet-emitted Float32 frames (via `port.postMessage`) to new `onVolumeFiltered` and `onCaptureChunkFiltered` callbacks.
+- Return both `analyserNode` (raw) and `filteredAnalyserNode` (cleaned), plus the new filtered callback hook points.
+- Existing `onChunk` (WebSocket), per-note capture buffer, raw `onVolume`, raw `onCaptureChunk` paths stay wired to the raw mic.
+
+Acceptance:
+- WebSocket-bound PCM in `onChunk` and per-note captures saved to `recorded_notes/` are bit-identical to today (raw).
+- `filteredAnalyserNode` returns non-null and produces data when the worklet is enabled.

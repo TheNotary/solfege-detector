@@ -1,0 +1,62 @@
+---
+id: 118
+title: Cancel drone & metronome feedback in mic waveform
+type: feature
+status: todo
+priority: 2
+parent: 26
+created_at: 2026-05-17T23:30:16.906265910Z
+updated_at: 2026-05-17T23:30:16.906265910Z
+---
+
+## Summary
+Filter out the app's own drone and metronome audio when they feed back into the microphone, so the on-screen waveform and hit-zone visuals reflect only the player's voice. Backend training audio remains raw.
+
+## User Message
+> We need a way of filtering out the sounds that are played by out app (the drone and the beat) when they're feeding back into the mic.
+
+Scoping clarification from the user: *"Only apply the filter against the waveform drawn to the screen, and to the extent that it influences the hitzone range."* Approach chosen: **D — reference-subtraction worklet**.
+
+## Plan
+
+### TL;DR
+Build a reference-signal adaptive echo canceller (NLMS in an `AudioWorklet`) that subtracts the app's own drone + metronome output from the mic input. The cleaned signal feeds **only** the on-screen waveform and the hit-zone visual feedback path. The WebSocket audio sent to the backend (rolling stream + per-note capture) remains untouched (raw mic).
+
+### Architecture today
+- `useAudioStream` creates the shared `AudioContext`, the mic source, and a shared `AnalyserNode` (fftSize 4096). Mic constraints: `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`.
+- Mic graph: `source -> analyserNode` (parallel) and `source -> scriptProcessor -> ctx.destination` (drives `onChunk` / `onVolume` / `onCaptureChunk`).
+- `useDrone` and `useMetronome` generate via Web Audio oscillators on the same `AudioContext` and connect to `ctx.destination` -> sample-accurate reference signal is available for tapping.
+- Existing latency calibration measures audio input latency (speaker -> room -> mic round-trip) in ms -- exactly the alignment delay an AEC needs.
+- Display + hit-zone mic consumers: `WaveformCrosshair.tsx`, `useWaveformDisplacement.ts`, `useVolumeDetection.ts` (confetti), `useOnsetDetection.ts` (onset flash).
+- Backend-bound consumers (MUST stay raw): `onChunk` (rolling stream to `/ws`), per-note capture buffer in `useAudioStream.stopNoteCapture()`.
+
+### Strategy
+Tap drone + metronome into a "reference mix" `GainNode` (in addition to `ctx.destination`). Route mic + reference into a single `AudioWorkletNode` running an NLMS adaptive FIR filter with a coarse fixed delay derived from the calibrated audio-input latency. Worklet output -> a second "filtered" `AnalyserNode` + a Float32 tap for `useVolumeDetection`/`useOnsetDetection`. Raw analyser + raw `scriptProcessor` path stay intact for the backend.
+
+### Phases
+1. **Reference-signal plumbing (no behavior change)** — New `useReferenceMix(audioContext)` owning a single `GainNode`. Extend `useDrone` + `useMetronome` with an optional `monitorNode` so their master gain connects to both `ctx.destination` and the reference mix. Wired in `GameView.tsx`.
+2. **AEC AudioWorklet** — New `test-client/public/aec-processor.js`. Two inputs (mic + reference), one output. Ring-buffer delay line seeded from `audioInputLatencyMs`; NLMS adaptive FIR (~128–512 taps, mu ~0.1–0.3); double-talk gate that freezes adaptation when mic energy dominates the reference. Message protocol: `setLatency`, `setEnabled`, `setTaps`, `stats`.
+3. **Wire filtered path through `useAudioStream`** (depends on 1+2) — Take `referenceNode`, `aecEnabled`, `audioInputLatencyMs`. Build `AudioWorkletNode("aec-processor")`, connect mic + reference into it, expose a second `filteredAnalyserNode` + `onVolumeFiltered` / `onCaptureChunkFiltered` callbacks. Raw paths unchanged.
+4. **Swap display + hit-zone consumers to filtered signal** (depends on 3) — `WaveformCrosshair` + `useWaveformDisplacement` point at the filtered analyser; `useVolumeDetection` + `useOnsetDetection` consume the filtered callbacks. `usePitchDetection` / `useSmoothedPitch` stay on the raw analyser.
+5. **User-facing controls + safe defaults** — Add `feedbackCancellation: boolean` (default true) to `useGameSettings` (localStorage). Toggle in `ConfigView`. Bypass the AEC during `CalibrateView`. Re-post `setLatency` to the worklet when calibration changes.
+6. **Debug overlay (optional)** — Behind existing `settings.debugMode`, show AEC residual dB + current delay (taps) and a live raw/filtered A/B toggle.
+
+### Verification
+1. Pure-TS NLMS unit test (or `OfflineAudioContext`): synthetic 130.81 Hz sine ref + delayed/attenuated mirror in mic, plus a separate "voice" burst. Assert residual sine RMS drops >=20 dB within 2 s; voice burst RMS within ~2 dB of unfiltered.
+2. Drone alone, no singing -> filtered waveform sits near the noise gate; raw waveform (debug toggle) clearly shows the drone; no spurious confetti.
+3. Metronome at 120 BPM -> no spurious `OnsetFlash` on clicks.
+4. Drone + sung syllables -> cyan trace shows the voice; confetti still fires inside the hit-zone.
+5. Spectrogram of a freshly saved `recorded_notes/*.wav` (filter on) still contains the drone -> proves backend path is unfiltered.
+6. Latency calibration result stable whether the toggle is on or off.
+7. Toggle off -> behavior identical to today.
+
+### Decisions
+- **In scope**: waveform render, waveform displacement (hit-zone visual extent), volume-based confetti, onset flash.
+- **Out of scope (raw mic preserved)**: WebSocket streaming, per-note backend captures, pitch detection.
+- **Algorithm**: NLMS adaptive FIR with coarse delay line seeded from existing audio-input latency calibration. Browser `echoCancellation: true` is deliberately avoided -- it would distort pitch and isn't scopable to just the display path.
+- **Double-talk handling**: simple mic-vs-reference energy-ratio gate freezes adaptation while user sings.
+
+### Further Considerations
+1. **Filtered tap delivery to JS** — `port.postMessage` of Float32 frames (recommended) vs. a second `ScriptProcessorNode` after the worklet.
+2. **Onset-detection feed split** — fork the `onCaptureChunk` callback so the per-note capture buffer keeps raw chunks while onset detection gets filtered chunks.
+3. **Reset on big calibration shift** — if `audioInputLatencyMs` changes by >=30 ms mid-session, also reset adaptive coefficients with a ~2 s re-converge.

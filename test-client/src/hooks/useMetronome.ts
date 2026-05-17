@@ -40,8 +40,16 @@ const DEFAULT_VOLUME = 0.25;
  *
  * Consumes a shared `AudioContext` (do not create a new one) so the metronome
  * clock matches other audio in the app (e.g. the drone).
+ *
+ * When `monitorNode` is provided, each scheduled click's gain is connected to
+ * *both* `ctx.destination` (audible output) and the monitor node, giving
+ * downstream consumers (e.g. an AEC worklet) sample-accurate access to the
+ * exact click signal the speakers are playing. Audible output is unchanged.
  */
-export function useMetronome(audioContext: AudioContext | null): UseMetronomeReturn {
+export function useMetronome(
+  audioContext: AudioContext | null,
+  monitorNode: AudioNode | null = null,
+): UseMetronomeReturn {
   const runningRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const t0Ref = useRef(0);
@@ -50,6 +58,8 @@ export function useMetronome(audioContext: AudioContext | null): UseMetronomeRet
   const optsRef = useRef<MetronomeStartOptions | null>(null);
   /** Oscillators scheduled but not yet stopped. */
   const pendingRef = useRef<Set<OscillatorNode>>(new Set());
+  const monitorRef = useRef<AudioNode | null>(monitorNode);
+  monitorRef.current = monitorNode;
 
   const scheduleBeat = useCallback(
     (when: number, accent: boolean) => {
@@ -71,6 +81,13 @@ export function useMetronome(audioContext: AudioContext | null): UseMetronomeRet
 
       osc.connect(gain);
       gain.connect(ctx.destination);
+      if (monitorRef.current) {
+        try {
+          gain.connect(monitorRef.current);
+        } catch {
+          // ignore — monitor may be in a different context (shouldn't happen)
+        }
+      }
 
       pendingRef.current.add(osc);
       osc.onended = () => {

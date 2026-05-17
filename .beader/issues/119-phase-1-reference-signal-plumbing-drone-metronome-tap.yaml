@@ -1,0 +1,25 @@
+---
+id: 119
+title: 'Phase 1: Reference-signal plumbing (drone+metronome tap)'
+type: task
+status: in_progress
+priority: 2
+parent: 118
+claimed_by: witty-falcon
+assignees:
+- witty-falcon
+created_at: 2026-05-17T23:30:32.163857410Z
+updated_at: 2026-05-17T23:31:36.349104385Z
+---
+
+Add a shared reference mix that both the drone and the metronome connect into, alongside their existing connection to `ctx.destination`. Foundational for all later phases; no audible change.
+
+Work:
+- New `test-client/src/hooks/useReferenceMix.ts` that owns a single `GainNode` (`refMix`) on the shared `AudioContext` and returns it.
+- Extend `useDrone` to accept an optional `monitorNode: AudioNode | null` and connect its master gain to **both** `ctx.destination` and `monitorNode`.
+- Extend `useMetronome` the same way (per-click gain connects to both).
+- In `test-client/src/views/GameView.tsx`, instantiate `useReferenceMix` once and pass the node into both hooks.
+
+Acceptance:
+- Drone + metronome sound identical to before.
+- Nothing consumes `refMix` yet (foundational only).

@@ -15,10 +15,16 @@ interface UseDroneReturn {
  * Synthesized drone using Web Audio OscillatorNodes.
  * Produces a warm, spa-like tone with harmonics and subtle LFO vibrato.
  * The frequency defaults to C3 (130.81 Hz) but can be changed dynamically.
+ *
+ * When `monitorNode` is provided, the drone's master gain is connected to
+ * *both* `ctx.destination` (audible output) and the monitor node, giving
+ * downstream consumers (e.g. an AEC worklet) sample-accurate access to the
+ * exact signal the speakers are playing. Audible output is unchanged.
  */
 export function useDrone(
   audioContext: AudioContext | null,
   frequency: number = DEFAULT_FREQ,
+  monitorNode: AudioNode | null = null,
 ): UseDroneReturn {
   const [isDroning, setIsDroning] = useState(false);
 
@@ -28,6 +34,8 @@ export function useDrone(
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const freqRef = useRef(frequency);
   freqRef.current = frequency;
+  const monitorRef = useRef<AudioNode | null>(monitorNode);
+  monitorRef.current = monitorNode;
 
   const startDrone = useCallback(() => {
     if (!audioContext || isDroning) return;
@@ -46,6 +54,13 @@ export function useDrone(
     masterGain.gain.setValueAtTime(0, now);
     masterGain.gain.linearRampToValueAtTime(volumeRef.current, now + FADE_DURATION);
     masterGain.connect(audioContext.destination);
+    if (monitorRef.current) {
+      try {
+        masterGain.connect(monitorRef.current);
+      } catch {
+        // ignore — monitor may be in a different context (shouldn't happen)
+      }
+    }
     masterGainRef.current = masterGain;
 
     const oscillators: OscillatorNode[] = [];

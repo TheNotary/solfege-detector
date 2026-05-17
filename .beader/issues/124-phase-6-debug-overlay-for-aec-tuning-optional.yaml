@@ -1,0 +1,22 @@
+---
+id: 124
+title: 'Phase 6: Debug overlay for AEC tuning (optional)'
+type: task
+status: todo
+priority: 3
+parent: 118
+blocked_by:
+- 122
+created_at: 2026-05-17T23:31:06.840823551Z
+updated_at: 2026-05-17T23:31:10.965061672Z
+---
+
+Behind the existing `settings.debugMode` flag, expose lightweight diagnostics for tuning the AEC.
+
+Work:
+- Render a small readout near `WaveformCrosshair` showing AEC residual dB and current delay (taps), populated from `{type:'stats'}` messages on the worklet port.
+- Add a debug toggle to flip the visual consumers between the raw and filtered analyser live, for A/B comparison by eye.
+
+Acceptance:
+- Overlay only renders when `settings.debugMode` is true.
+- A/B toggle visibly swaps the waveform source without remounting the audio graph.

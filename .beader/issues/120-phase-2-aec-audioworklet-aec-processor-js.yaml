@@ -1,0 +1,29 @@
+---
+id: 120
+title: 'Phase 2: AEC AudioWorklet (aec-processor.js)'
+type: feature
+status: todo
+priority: 2
+parent: 118
+created_at: 2026-05-17T23:30:32.179661110Z
+updated_at: 2026-05-17T23:30:32.179661110Z
+---
+
+Implement the adaptive echo canceller worklet that subtracts a reference signal from the mic.
+
+Work:
+- Add `test-client/public/aec-processor.js` (served as a static asset for `audioWorklet.addModule()`).
+- `class AecProcessor extends AudioWorkletProcessor`:
+  - Inputs: `input[0]` = mic (1ch), `input[1]` = reference mix (1ch). Output: 1ch cleaned mic.
+  - Ring-buffer delay line on the reference. Default delay = `audioInputLatencyMs` (received via `port.postMessage`), rounded to samples at `sampleRate`.
+  - NLMS adaptive FIR, filter length ~128–512 taps (~3–12 ms at 44.1 kHz), step size `mu` ≈ 0.1–0.3, small regularization eps.
+  - Double-talk protection: freeze adaptation when mic energy exceeds reference energy by a configurable ratio.
+- Message protocol on `port`:
+  - `{type:'setLatency', ms:number}`
+  - `{type:'setEnabled', on:boolean}`
+  - `{type:'setTaps', n:number}`
+  - `{type:'stats'}` → reports residual energy / current delay for debug.
+
+Acceptance:
+- Module loads without errors via `audioContext.audioWorklet.addModule('/aec-processor.js')`.
+- Unit-style test (pure-TS extraction or `OfflineAudioContext`): synthetic 130.81 Hz sine reference + delayed/attenuated mirror in mic + a voice burst → residual sine RMS drops ≥20 dB within 2 s, voice burst RMS within ~2 dB of unfiltered.

@@ -1,0 +1,24 @@
+---
+id: 125
+title: 'Verification: end-to-end manual + offline tests for feedback cancellation'
+type: task
+status: todo
+priority: 2
+parent: 118
+blocked_by:
+- 122
+- 123
+created_at: 2026-05-17T23:31:06.852840831Z
+updated_at: 2026-05-17T23:31:10.970898492Z
+---
+
+Confirm the feature works in practice and that backend audio is untouched.
+
+Checks (from the plan):
+1. **Unit / offline**: pure-TS NLMS extraction or `OfflineAudioContext` — synthetic 130.81 Hz sine reference + delayed/attenuated mirror in mic + a 'voice' burst. Assert residual sine RMS drops ≥20 dB within 2 s and voice burst RMS stays within ~2 dB of unfiltered.
+2. **Manual — drone alone**: start drone, no singing. Filtered waveform sits at the gate; raw waveform (debug toggle) shows the drone clearly; no spurious confetti.
+3. **Manual — metronome alone**: 120 BPM. No `OnsetFlash` on the clicks.
+4. **Manual — drone + singing**: sing each solfege syllable through the drone. Cyan trace clearly shows voice; in-zone confetti still fires.
+5. **Backend audio untouched**: spectrogram of a freshly saved `recorded_notes/*.wav` after a session with the filter on should still contain the drone (confirms backend path is unfiltered).
+6. **Calibration isolation**: latency calibration result stable with filter on vs off.
+7. **Toggle off**: behavior identical to pre-feature.
