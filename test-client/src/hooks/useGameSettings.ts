@@ -9,6 +9,9 @@ export interface GameSettings {
   showHitzoneOffset: boolean;
   audioLatencyMs: number;
   displayLatencyMs: number;
+  metronomeEnabled: boolean;
+  metronomeVolume: number;
+  metronomeOffsetMs: number;
 }
 
 const STORAGE_KEY = "solfege-settings";
@@ -22,6 +25,9 @@ const DEFAULTS: GameSettings = {
   showHitzoneOffset: true,
   audioLatencyMs: 0,
   displayLatencyMs: 0,
+  metronomeEnabled: true,
+  metronomeVolume: 0.25,
+  metronomeOffsetMs: 0,
 };
 
 // ── Singleton store so every hook instance shares the same snapshot ──

@@ -1,0 +1,49 @@
+---
+id: 114
+title: Create useMetronome scheduler hook
+type: task
+status: closed
+priority: 1
+parent: 113
+assignees:
+- agile-river
+created_at: 2026-05-17T17:48:38.244926988Z
+updated_at: 2026-05-17T17:50:47.486905703Z
+closed_at: 2026-05-17T17:50:47.486904320Z
+---
+
+Create `test-client/src/hooks/useMetronome.ts` — an open-ended Web Audio metronome scheduler.
+
+**API:**
+- `start(opts: { getBpm: () => number; getOffsetSec: () => number; accentDownbeats?: boolean }): void`
+- `stop(): void`
+- `setVolume(v: number): void`
+- `isRunning: () => boolean`
+
+**Constructor arg:** the shared `AudioContext` (the same instance `useAudioStream` exposes and that `useDrone` already consumes). Do NOT create a new `AudioContext`.
+
+**Scheduling:**
+- Capture `t0 = audioContext.currentTime + 0.05` on `start()`. Reset `beatIndex = 0`.
+- Use a 200 ms `setInterval` lookahead loop that pre-schedules every beat whose scheduled time `< audioContext.currentTime + 0.3`.
+- Beat n scheduled time: `t0 + n * (60 / getBpm()) + getOffsetSec()`. Re-read BPM and offset on each scheduled beat so live changes apply on the NEXT tick without phase reset.
+- Each beat spawns a short osc+gain burst mirroring `useClickTrack`'s envelope: `OscillatorNode` sine, default 1500 Hz, 20 ms total, `GainNode` envelope (1 ms linear attack to volume, 19 ms linear release to 0). `osc.start(t)` / `osc.stop(t + 0.03)`.
+- Track scheduled oscillators in a ref; on `stop()` cancel/disconnect any that haven't fired yet and clear the interval.
+
+**Volume:** kept in a ref; updated by `setVolume(v)` and read at schedule time so changes apply to future beats.
+
+**Cleanup:** `stop()` on unmount via a `useEffect` cleanup.
+
+**Optional (default off) `accentDownbeats`:** when true, every 4th beat uses 2000 Hz and 1.2× volume. Hook arg only — no UI in this task.
+
+**Pattern reference:** mirror `useClickTrack.ts` for the burst synthesis; mirror `useDrone.ts` for shared-AudioContext lifecycle.
+
+**Out of scope:** UI wiring; settings integration; tests.
+
+**Acceptance:** file compiles cleanly under `pnpm --filter test-client typecheck`; hook can be imported with no side effects until `start()` is called.
+
+---
+COMMENT
+2026-05-17T17:50:47.480492784Z
+author: agile-river
+
+Created test-client/src/hooks/useMetronome.ts. Web Audio sample-accurate scheduler: 200ms setInterval lookahead loop pre-schedules every beat within 300ms horizon as short osc+gain bursts (sine, 1500Hz, 1ms attack / 19ms release). t0 captured at start (currentTime + 50ms safety margin); BPM and offset re-read on every beat so live changes apply on the next tick without phase reset. Tracks pending oscillators in a Set; stop() cancels in-flight ones. accentDownbeats hook arg implemented (every 4th beat 2000Hz, 1.2x volume) but unused by default. useEffect cleanup stops on unmount. typecheck clean.

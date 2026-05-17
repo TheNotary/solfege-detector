@@ -1,0 +1,32 @@
+---
+id: 115
+title: Add metronome fields to game settings
+type: task
+status: closed
+priority: 1
+parent: 113
+assignees:
+- agile-river
+created_at: 2026-05-17T17:48:48.021977243Z
+updated_at: 2026-05-17T17:50:53.555751622Z
+closed_at: 2026-05-17T17:50:53.555750771Z
+---
+
+Extend `test-client/src/hooks/useGameSettings.ts` `GameSettings` interface and `DEFAULTS` constant with three new persisted fields:
+
+- `metronomeEnabled: boolean` — default `true`. The metronome is on out of the box because the user explicitly asked for it to help with timing.
+- `metronomeVolume: number` — default `0.25`. Expected UI range `0..0.6`.
+- `metronomeOffsetMs: number` — default `0`. Expected UI range `-200..+200` (ms). Independent of the existing calibrated `audioLatencyMs` / `displayLatencyMs` because those measure mic-input and visual-display latency, not audio-output latency.
+
+No other changes — the settings store already handles persistence and change notifications via `useSyncExternalStore`. Existing readers ignore unknown new fields because `readFromStorage` spreads defaults first.
+
+**Out of scope:** wiring these fields into any UI or hook — done in the GameView integration task.
+
+**Acceptance:** `pnpm --filter test-client typecheck` clean; loading the app on a browser that has an older `solfege-settings` localStorage value still works (defaults backfill).
+
+---
+COMMENT
+2026-05-17T17:50:53.550791948Z
+author: agile-river
+
+Added metronomeEnabled (true), metronomeVolume (0.25), metronomeOffsetMs (0) to GameSettings and DEFAULTS in test-client/src/hooks/useGameSettings.ts. Persistence and change notification are automatic (readFromStorage spreads DEFAULTS first, so older localStorage values get backfilled). typecheck clean.

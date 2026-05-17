@@ -14,6 +14,7 @@ import { useAudioQuality } from "../hooks/useAudioQuality";
 import { usePitchDetection } from "../hooks/usePitchDetection";
 import { useSmoothedPitch } from "../hooks/useSmoothedPitch";
 import { useDrone } from "../hooks/useDrone";
+import { useMetronome } from "../hooks/useMetronome";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import OnsetFlash from "../components/OnsetFlash";
 import WaveformCrosshair from "../components/WaveformCrosshair";
@@ -40,7 +41,7 @@ const DEFAULT_ROOT_HZ = 130.81; // C3
 export default function GameView(_props: GameViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sentNoteIds = useRef<Set<number>>(new Set());
-  const { settings } = useGameSettings();
+  const { settings, updateSetting } = useGameSettings();
 
   // Root note configuration — initialised from saved settings
   const [rootNote, setRootNote] = useState(() => settings.rootNote);
@@ -169,6 +170,23 @@ export default function GameView(_props: GameViewProps) {
   );
   const [droneVolume, setDroneVolumeState] = useState(() => settings.droneVolume);
 
+  // Metronome — clicks aligned to the game's beat clock so the player knows
+  // exactly when each sliding note will hit the crosshair.
+  const metronome = useMetronome(audioContext);
+  const [metronomeEnabled, setMetronomeEnabled] = useState(() => settings.metronomeEnabled);
+  const [metronomeVolume, setMetronomeVolumeState] = useState(() => settings.metronomeVolume);
+  const [metronomeOffsetMs, setMetronomeOffsetMs] = useState(() => settings.metronomeOffsetMs);
+  // Live refs so the metronome's scheduler reads the latest values every beat.
+  const bpmRef = useRef(speed);
+  bpmRef.current = speed;
+  const metronomeOffsetMsRef = useRef(metronomeOffsetMs);
+  metronomeOffsetMsRef.current = metronomeOffsetMs;
+
+  // Keep volume in sync.
+  useEffect(() => {
+    metronome.setVolume(metronomeVolume);
+  }, [metronome, metronomeVolume]);
+
   // Waveform displacement (kept for visual reference / future use)
   const waveformDisplacement = useWaveformDisplacement(analyserNode, isRecording);
   void waveformDisplacement; // used by WaveformCrosshair visually
@@ -237,12 +255,32 @@ export default function GameView(_props: GameViewProps) {
     if (isRunning) {
       stopGame();
       stopRecording();
+      metronome.stop();
       sentNoteIds.current.clear();
     } else {
       startGame();
       startRecording();
+      if (metronomeEnabled) {
+        metronome.start({
+          getBpm: () => bpmRef.current,
+          getOffsetSec: () => metronomeOffsetMsRef.current / 1000,
+        });
+      }
     }
-  }, [isRunning, startGame, stopGame, startRecording, stopRecording]);
+  }, [isRunning, startGame, stopGame, startRecording, stopRecording, metronome, metronomeEnabled]);
+
+  // Start/stop the metronome live when the toggle flips during a running game.
+  useEffect(() => {
+    if (!isRunning) return;
+    if (metronomeEnabled && !metronome.isRunning()) {
+      metronome.start({
+        getBpm: () => bpmRef.current,
+        getOffsetSec: () => metronomeOffsetMsRef.current / 1000,
+      });
+    } else if (!metronomeEnabled && metronome.isRunning()) {
+      metronome.stop();
+    }
+  }, [isRunning, metronomeEnabled, metronome]);
 
   // Esc key → stop everything and return to main menu
   useEffect(() => {
@@ -251,6 +289,7 @@ export default function GameView(_props: GameViewProps) {
         if (isRunning) {
           stopGame();
           stopRecording();
+          metronome.stop();
           sentNoteIds.current.clear();
         }
         if (isDroning) stopDrone();
@@ -259,7 +298,7 @@ export default function GameView(_props: GameViewProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isRunning, isDroning, stopGame, stopRecording, stopDrone, navigate]);
+  }, [isRunning, isDroning, stopGame, stopRecording, stopDrone, navigate, metronome]);
 
   return (
     <div className="game-container" ref={containerRef}>
@@ -326,6 +365,46 @@ export default function GameView(_props: GameViewProps) {
                 const v = parseFloat(e.target.value);
                 setDroneVolumeState(v);
                 setDroneVolume(v);
+              }}
+            />
+          </div>
+          <div className="metronome-control">
+            <button
+              className={`game-btn drone ${metronomeEnabled ? "active" : ""}`}
+              onClick={() => {
+                const next = !metronomeEnabled;
+                setMetronomeEnabled(next);
+                updateSetting("metronomeEnabled", next);
+              }}
+            >
+              {metronomeEnabled ? "🥁 Beat" : "🔇 Beat"}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={0.6}
+              step={0.01}
+              value={metronomeVolume}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                setMetronomeVolumeState(v);
+                updateSetting("metronomeVolume", v);
+              }}
+            />
+            <span className="metronome-offset-label">
+              Offset: {metronomeOffsetMs > 0 ? "+" : ""}
+              {metronomeOffsetMs} ms
+            </span>
+            <input
+              type="range"
+              min={-200}
+              max={200}
+              step={5}
+              value={metronomeOffsetMs}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setMetronomeOffsetMs(v);
+                updateSetting("metronomeOffsetMs", v);
               }}
             />
           </div>

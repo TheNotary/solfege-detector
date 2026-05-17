@@ -1,0 +1,40 @@
+---
+id: 116
+title: Wire metronome into GameView with HUD controls
+type: task
+status: in_progress
+priority: 1
+parent: 113
+blocked_by:
+- 114
+- 115
+claimed_by: agile-river
+assignees:
+- agile-river
+created_at: 2026-05-17T17:48:58.796485609Z
+updated_at: 2026-05-17T17:50:58.810529260Z
+---
+
+Integrate the `useMetronome` hook (issue #114) and the new persisted settings (issue #115) into `test-client/src/views/GameView.tsx`, and add HUD controls so the player can toggle/adjust the metronome live.
+
+**Hook wiring:**
+- Instantiate `const metronome = useMetronome(audioContext)`.
+- Keep live values in refs so the metronome's `getBpm` / `getOffsetSec` closures see the latest: `bpmRef.current = speed`, `offsetMsRef.current = metronomeOffsetMs`.
+- In `handleToggle` start branch, immediately after `startGame()`: if `settings.metronomeEnabled`, call `metronome.start({ getBpm: () => bpmRef.current, getOffsetSec: () => offsetMsRef.current / 1000 })`.
+- In `handleToggle` stop branch, the Esc-key handler, and an unmount cleanup: call `metronome.stop()`.
+- When the enabled toggle flips while a game is running: start the metronome if turning on, stop if turning off.
+- Call `metronome.setVolume(settings.metronomeVolume)` whenever the slider changes (and once on initial mount via effect to pick up the persisted value).
+
+**HUD controls** (place inside `.hud-center`, grouped after `.drone-control`):
+- 🥁 toggle button styled like the drone button (`game-btn drone` modifier or a new sibling class); label `🥁 Beat` / `🔇 Beat`.
+- Volume `input[type=range]` min=0, max=0.6, step=0.01.
+- "Offset" `input[type=range]` min=-200, max=200, step=5, with a small live readout like `Offset: +30 ms`.
+- All three persist via `updateSetting("metronomeEnabled" | "metronomeVolume" | "metronomeOffsetMs", value)`.
+
+**CSS:** add a `.metronome-control` rule in `test-client/src/views/GameView.css` mirroring `.drone-control` for consistent layout.
+
+**Acceptance:**
+- `pnpm --filter test-client typecheck && pnpm --filter test-client lint` clean.
+- Manual: on a started game, clicks audibly tick from frame 1; toggling the HUD button silences/resumes them mid-game; volume slider takes effect on the next beat; offset slider shifts beats audibly; reloading the page preserves all three values.
+
+**Depends on:** #114 (hook) and #115 (settings).

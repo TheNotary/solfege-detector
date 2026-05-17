@@ -1,0 +1,66 @@
+---
+id: 113
+title: Beat-aligned metronome during gameplay
+type: feature
+status: todo
+priority: 1
+parent: 26
+created_at: 2026-05-17T17:48:24.905854894Z
+updated_at: 2026-05-17T17:48:24.905854894Z
+---
+
+## Summary
+
+Play a metronome click that's locked to the game's beat clock so the player knows exactly when each sliding note will hit the crosshair. One click per beat (i.e. one click per spawned note), starting at game-start — which yields ~2 beats of natural count-in before the first note arrives — and continuing for the duration of the game.
+
+## User Message
+
+We need to play a beat that's aligned with the notes so the user has a better sence of exactly when to sing.
+
+## Plan
+
+### Key timing fact (from current engine)
+
+In `useGameEngine.ts` / `hitZoneGeometry.ts`:
+- `spawnInterval = 60 / BPM` — one note spawned per beat.
+- Notes traverse `x: 105% → -5%` over `travelTime = 3 * spawnInterval`.
+- Time from spawn to crosshair (85% of width): `85/110 * travelTime ≈ 2.32 * spawnInterval`.
+- After the first arrival, a note crosses the crosshair every `spawnInterval` seconds.
+
+A metronome ticking every `spawnInterval` starting at game-start naturally produces ~2 beats of count-in, then aligns one-to-one with note arrivals.
+
+### Phase 1 — Metronome scheduler hook
+1. Create `test-client/src/hooks/useMetronome.ts`. Consumes the shared `AudioContext` (same one `useDrone` uses). API: `start({ getBpm, getOffsetSec })`, `stop()`, `setVolume(v)`. Uses Web Audio sample-accurate scheduling: a 200 ms `setInterval` lookahead loop pre-schedules clicks up to ~300 ms ahead via short osc+gain bursts (mirrors `useClickTrack`'s envelope: ~1500 Hz, 20 ms, 1 ms attack / 19 ms release). Beat n fires at `t0 + n * (60 / getBpm())`; BPM re-read every tick so live speed changes apply on the next beat without phase reset.
+
+### Phase 2 — Settings & persistence
+2. Extend `test-client/src/hooks/useGameSettings.ts` `GameSettings` + `DEFAULTS` with:
+   - `metronomeEnabled: boolean` (default `true`)
+   - `metronomeVolume: number` (default `0.25`)
+   - `metronomeOffsetMs: number` (default `0`) — independent of `audioLatencyMs` / `displayLatencyMs` because output latency ≠ input latency.
+
+### Phase 3 — Wire into gameplay (depends on Phase 1 & 2)
+3. Modify `test-client/src/views/GameView.tsx`:
+   - Instantiate `useMetronome(audioContext)`; start it in `handleToggle` start path immediately after `startGame()`, stop it in the stop / Esc / unmount paths.
+   - Add HUD controls grouped next to the drone control: 🥁 toggle button, volume slider (0–0.6), and an "Offset" slider (-200..+200 ms).
+   - Persist control changes via `updateSetting(...)` like the existing drone/speed handlers.
+4. Minor styling tweak in `test-client/src/views/GameView.css` mirroring `.drone-control` for the new control group.
+
+### Phase 4 — Verification
+5. `pnpm --filter test-client typecheck && pnpm --filter test-client lint` — clean.
+6. `pnpm --filter test-client test` — existing `hitZoneGeometry.test.ts` still passes; no new unit tests (timing-only hook is better verified by ear).
+7. Manual browser smoke test:
+   - Start a 30 BPM game and confirm a click coincides (within ~30 ms) with each note centering on the crosshair.
+   - Bump to 60 BPM mid-game and verify clicks re-pace.
+   - Toggle metronome off/on.
+   - Sing notes and confirm `note_event` messages still flow with audio attached.
+   - Reload and confirm toggle/volume/offset persist via `localStorage`.
+
+### Decisions
+
+- **Sample-accurate Web Audio scheduling**, not `setTimeout` — avoids drift that would visibly desync from notes.
+- **Reuse the existing shared `AudioContext`** so the metronome clock matches the drone clock and avoids extra device latency.
+- **Phase reset only on start.** Changing BPM mid-game keeps t0 and stretches the interval, matching how the engine handles in-flight notes on speed changes.
+- **`metronomeOffsetMs` is its own slider** (not derived from calibrated latency values) because those calibrate mic input and visual lag, not audio output.
+- **Excluded:** server changes; unit tests for the scheduler; pre-emptive filtering of click leakage in mic capture (revisit only if smoke testing shows interference).
+- **Default enabled = true** so the metronome is the new OOTB experience.
+- **No downbeat accent** in v1 (keep `accentDownbeats` as a hook arg defaulted off for future polish).

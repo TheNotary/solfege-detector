@@ -306,3 +306,22 @@
   background-color: #f59e0b;
   color: #000;
 }
+
+/* Metronome controls */
+.metronome-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metronome-control input[type="range"] {
+  width: 80px;
+  accent-color: #38bdf8;
+}
+
+.metronome-offset-label {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  min-width: 5.5em;
+  text-align: right;
+}

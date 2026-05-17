@@ -1,0 +1,33 @@
+---
+id: 117
+title: Verify metronome end-to-end (typecheck, lint, tests, smoke)
+type: task
+status: todo
+priority: 2
+parent: 113
+blocked_by:
+- 116
+created_at: 2026-05-17T17:49:13.776470384Z
+updated_at: 2026-05-17T17:49:19.699203042Z
+---
+
+Final verification pass for the beat-aligned metronome feature.
+
+**Automated checks:**
+1. `pnpm --filter test-client typecheck` — clean.
+2. `pnpm --filter test-client lint` — clean.
+3. `pnpm --filter test-client test` — `hitZoneGeometry.test.ts` and any other existing vitest suites still pass. No new tests required for this feature (sample-accurate audio timing is hard to assert deterministically in jsdom and is better verified by ear).
+
+**Manual browser smoke test** (record observations in a comment on this issue):
+- Start a game at 30 BPM. Confirm clicks start ticking immediately (count-in), and that beats 3+ each coincide audibly with a note centering on the crosshair (target ≤30 ms perceived offset).
+- Bump speed to 60 BPM mid-game via the existing slider. Confirm beats re-pace on the next tick without dropping, doubling, or freezing.
+- Toggle the 🥁 button while running: clicks stop / resume cleanly mid-game.
+- Drag the volume slider through its range: changes audible on the next beat.
+- Drag the offset slider ±200 ms: beats audibly shift earlier/later relative to note arrivals.
+- Sing several notes; confirm `note_event` messages still flow to the server with audio attached and that pitch/onset detection isn't visibly disrupted. If interference is observed, lower default volume / shorten click before escalating.
+- Reload the page; confirm enabled/volume/offset persist via localStorage.
+- Press Esc mid-game: metronome stops along with the game.
+
+**If smoke test shows mic interference** (note_events broken or onset spam), open a discovered-from follow-up issue rather than blocking this one; the mitigation order is: lower default volume → shorten click duration (8–10 ms) → schedule click earlier so it decays before capture opens.
+
+**Depends on:** #116.
