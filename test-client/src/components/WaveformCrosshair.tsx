@@ -27,17 +27,25 @@ export default function WaveformCrosshair({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Resize canvas to match its CSS dimensions with HiDPI scaling
+    // Resize canvas to fill the parent container's full height with HiDPI scaling.
+    // Canvas elements don't stretch via top/bottom: 0 like divs, so we
+    // explicitly sync the height from the parent and window resize events.
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
+      const parent = canvas.parentElement;
+      const h = parent ? parent.clientHeight : window.innerHeight;
+      canvas.style.height = `${h}px`;
       canvas.width = CANVAS_WIDTH * dpr;
-      canvas.height = rect.height * dpr;
+      canvas.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
+    // Observe the parent container so we catch layout changes (not the
+    // canvas itself, which won't resize on its own).
+    const parent = canvas.parentElement;
     const observer = new ResizeObserver(resize);
-    observer.observe(canvas);
+    if (parent) observer.observe(parent);
+    window.addEventListener("resize", resize);
     resize();
 
     // Allocate data buffer when analyser becomes available
@@ -46,9 +54,9 @@ export default function WaveformCrosshair({
     }
 
     const draw = () => {
-      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
       const w = CANVAS_WIDTH;
-      const h = rect.height;
+      const h = canvas.height / dpr;
       const cx = w / 2;
 
       ctx.clearRect(0, 0, w, h);
@@ -127,6 +135,7 @@ export default function WaveformCrosshair({
     return () => {
       cancelAnimationFrame(rafRef.current);
       observer.disconnect();
+      window.removeEventListener("resize", resize);
     };
   }, [analyserNode, isRecording]);
 
