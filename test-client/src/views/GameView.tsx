@@ -17,6 +17,14 @@ import AppConfig from "../AppConfig";
 
 const SOLFEGE_LABELS = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
 
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
+function hzToNoteName(hz: number): string {
+  const semitone = Math.round(12 * Math.log2(hz / 440));
+  const noteIndex = ((semitone % 12) + 12) % 12;
+  const octave = Math.floor((semitone + 9) / 12) + 4;
+  return `${NOTE_NAMES[(noteIndex + 9) % 12]}${octave}`;
+}
+
 interface GameViewProps {
   isConnected?: boolean;
 }
@@ -279,6 +287,9 @@ export default function GameView(_props: GameViewProps) {
       {/* Debug HUD */}
       {showDebug && (
         <div className="debug-hud">
+          <span className="debug-note">
+            Note: {avgPitchHz !== null ? hzToNoteName(avgPitchHz) : "—"}
+          </span>
           <span className="debug-pitch">
             Pitch: {avgPitchHz !== null ? `${avgPitchHz.toFixed(1)} Hz` : "—"}
           </span>
