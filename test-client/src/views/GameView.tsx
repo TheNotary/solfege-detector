@@ -103,8 +103,14 @@ export default function GameView(_props: GameViewProps) {
   const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
     useAudioStream({
       onChunk,
-      onVolume,
-      onCaptureChunk: feedSamples,
+      // Display-side consumers prefer the cleaned (AEC) signal when the
+      // worklet is running. When it isn't (e.g. before the reference mix is
+      // wired up, or AEC disabled), we fall back to the raw mic so the
+      // confetti gate and onset detector still work.
+      onVolume: filteredAnalyserNode ? undefined : onVolume,
+      onVolumeFiltered: onVolume,
+      onCaptureChunk: filteredAnalyserNode ? undefined : feedSamples,
+      onCaptureChunkFiltered: feedSamples,
       trimCapture,
       referenceNode,
       aecEnabled: true,
@@ -206,7 +212,10 @@ export default function GameView(_props: GameViewProps) {
   }, [metronome, metronomeVolume]);
 
   // Waveform displacement (kept for visual reference / future use)
-  const waveformDisplacement = useWaveformDisplacement(analyserNode, isRecording);
+  // Display-side waveform/hit-zone visuals read from the cleaned analyser
+  // when AEC is active; otherwise from the raw analyser (pre-drone or AEC off).
+  const displayAnalyserNode = filteredAnalyserNode ?? analyserNode;
+  const waveformDisplacement = useWaveformDisplacement(displayAnalyserNode, isRecording);
   void waveformDisplacement; // used by WaveformCrosshair visually
 
   // Hit-zone geometry (centerPct, halfPct, offsetPct).  Computed every
@@ -468,7 +477,7 @@ export default function GameView(_props: GameViewProps) {
       {/* Crosshair.  Width is derived from the same helper that powers the
           debug overlay so the cyan box and the yellow debug box are
           geometrically identical by construction (see #109). */}
-      <WaveformCrosshair analyserNode={analyserNode} x={CROSSHAIR_X} isRecording={isRecording} />
+      <WaveformCrosshair analyserNode={displayAnalyserNode} x={CROSSHAIR_X} isRecording={isRecording} />
       <div
         className="crosshair-zone"
         style={{

@@ -2,17 +2,17 @@
 id: 121
 title: 'Phase 3: Wire filtered path through useAudioStream'
 type: feature
-status: in_progress
+status: closed
 priority: 2
 parent: 118
 blocked_by:
 - 119
 - 120
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-17T23:30:45.893919880Z
-updated_at: 2026-05-17T23:37:28.030773494Z
+updated_at: 2026-05-17T23:41:20.859395201Z
+closed_at: 2026-05-17T23:41:20.859394442Z
 ---
 
 Expose a parallel filtered mic path from `useAudioStream` without disturbing the existing raw path used by the backend.
@@ -30,3 +30,10 @@ Work:
 Acceptance:
 - WebSocket-bound PCM in `onChunk` and per-note captures saved to `recorded_notes/` are bit-identical to today (raw).
 - `filteredAnalyserNode` returns non-null and produces data when the worklet is enabled.
+
+---
+COMMENT
+2026-05-17T23:41:20.855404600Z
+author: witty-falcon
+
+Implemented in bd9840f. useAudioStream now accepts referenceNode/aecEnabled/audioInputLatencyMs and exposes a separate filteredAnalyserNode. AEC effect loads /aec-processor.js, builds a 2-in/1-out AudioWorkletNode, wires mic+reference, posts setLatency from settings.audioLatencyMs, and dispatches frame events to onVolumeFiltered (RMS) and onCaptureChunkFiltered (raw samples). Raw paths (analyser, scriptProcessor->onChunk->WebSocket, per-note capture) are untouched -- backend audio remains bit-identical. GameView adds a forward-declared state slot that bridges the reference-mix GainNode (created by useReferenceMix, which itself depends on the AudioContext created inside useAudioStream) back up to the recording hook. Build + 12/12 vitest pass.
