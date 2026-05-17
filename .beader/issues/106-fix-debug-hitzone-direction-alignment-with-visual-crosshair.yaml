@@ -1,0 +1,37 @@
+---
+id: 106
+title: Fix debug-hitzone direction & alignment with visual crosshair
+type: feature
+status: todo
+priority: 1
+parent: 26
+created_at: 2026-05-17T17:23:35.531846301Z
+updated_at: 2026-05-17T17:23:35.531846301Z
+---
+
+## Summary
+Two distinct bugs in the GameView hit-zone geometry: (1) latency calibration shifts the debug hit-zone in the wrong direction; (2) before any calibration is applied, the debug zone visually mismatches the real crosshair zone due to a width-clamp + unit mismatch.
+
+## User Message
+> There are multiple issues with the debug hitzone and the actual crosshair-zone. The debug hitzone represents where the notes can actually be counted as being hit.
+>
+> The latency calibration's effect on the hitzone seems to have displaced the debug hitzone in the wrong direction.
+>
+> Also, before any calibrations are applied, the debug zone naturally is drawn in an area that is offset from where the real waveform is drawn. We need to figure out why that's going on, possibly by leaning on the tests and fix this problem too.
+
+## Plan
+
+### Bug analysis
+1. **Sign flip**: `computeHitZoneGeometry` does `effectiveCenter = CROSSHAIR_X + offsetPct`. Notes slide right->left, and latency means "sound is detected AFTER the note has already moved past the visual crosshair." To compensate, the effective hit-zone must shift LEFT (lower %), not right. The existing test "positive latency shifts debug-hitzone to the right" encodes the bug.
+2. **Width mismatch ("natural offset")**: The visual `.crosshair-zone` is a fixed `160px` box centered on `CROSSHAIR_X%`. The debug `.debug-hit-zone` width is `2 * halfPct%` where `halfPct = min(visualHalfPct, HIT_ZONE_HALF=6)`. Same center, but widths only match on viewports >= ~1333px. Three different sources of truth for "hit-zone width" exist (CSS px, % helper with cap, `HIT_ZONE_HALF=6%` fallback).
+
+### Steps
+1. Flip sign in `test-client/src/lib/hitZoneGeometry.ts`: `effectiveCenter = CROSSHAIR_X - offsetPct`.
+2. Update `test-client/src/lib/hitZoneGeometry.test.ts`: flip direction asserts; add width-parity test.
+3. In `test-client/src/views/GameView.tsx`, flip the purple `.debug-latency-offset` band to the LEFT side of the debug zone.
+4. Unify geometry: drop the halfPct cap when pixel inputs are provided; derive `.crosshair-zone` width from the same `halfPct`.
+5. Run `pnpm --filter test-client test`; manually verify.
+
+### Decisions
+- Positive latency settings = "sound/perception arrives later than reality" -> hit zone shifts LEFT.
+- Out of scope: in-loop capture-start/stop boundaries in `useGameEngine.ts` (intentionally use fixed `HIT_ZONE_HALF` as a generous capture window).

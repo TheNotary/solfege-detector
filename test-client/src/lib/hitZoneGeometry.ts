@@ -44,7 +44,11 @@ export function computeHitZoneGeometry(input: HitZoneGeometryInput): HitZoneGeom
 
   const latencyMs = audioLatencyMs + displayLatencyMs;
   const offsetPct = latencyMs * pctPerMs;
-  const effectiveCenter = CROSSHAIR_X + offsetPct;
+  // Notes slide right→left.  Positive latency means sound/perception arrives
+  // AFTER the note crossed the visual crosshair, so the note has moved
+  // further LEFT by the time we evaluate the hit — shift effective center
+  // LEFT to compensate.
+  const effectiveCenter = CROSSHAIR_X - offsetPct;
 
   let halfPct: number;
   if (containerWidthPx != null && containerWidthPx > 0) {

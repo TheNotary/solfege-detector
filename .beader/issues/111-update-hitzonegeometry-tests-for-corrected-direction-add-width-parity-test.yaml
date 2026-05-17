@@ -1,0 +1,20 @@
+---
+id: 111
+title: Update hitZoneGeometry tests for corrected direction + add width-parity test
+type: task
+status: todo
+priority: 1
+parent: 106
+blocked_by:
+- 107
+created_at: 2026-05-17T17:24:18.236303878Z
+updated_at: 2026-05-17T17:24:44.791085938Z
+---
+
+In `test-client/src/lib/hitZoneGeometry.test.ts`:
+
+1. Rename 'positive latency shifts debug-hitzone to the right' -> '...to the left'. Change `expect(result.effectiveCenter).toBeGreaterThan(CROSSHAIR_X)` to `toBeLessThan(CROSSHAIR_X)`. Keep `offsetPct > 0` (it represents magnitude).
+2. Audit other tests: 'offset is ~25% of zone width at typical latency' and 'offset scales linearly with latency' reference `offsetPct` magnitude only -- should still pass. The 'offset is zero when latency is zero' test still passes (effectiveCenter == CROSSHAIR_X).
+3. Add new test 'debug box pixel-width matches crosshairHalfPx*2': call `computeHitZoneGeometry({ bpm: 30, audioLatencyMs:0, displayLatencyMs:0, containerWidthPx: 1920, crosshairHalfPx: 80 })` and assert `(result.halfPct / 100) * 1920` is close to `80`. Repeat at containerWidthPx: 800 to guard against the cap regression (this test should fail before the geometry-unification task and pass after).
+
+Depends on the sign-flip task (#107) for assertion direction.

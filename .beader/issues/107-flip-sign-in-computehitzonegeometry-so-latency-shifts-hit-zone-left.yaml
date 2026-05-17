@@ -1,0 +1,19 @@
+---
+id: 107
+title: Flip sign in computeHitZoneGeometry so latency shifts hit-zone LEFT
+type: bug
+status: in_progress
+priority: 1
+parent: 106
+claimed_by: snappy-spark
+assignees:
+- snappy-spark
+created_at: 2026-05-17T17:24:00.126586606Z
+updated_at: 2026-05-17T17:25:01.516065917Z
+---
+
+In `test-client/src/lib/hitZoneGeometry.ts` line ~47, change `effectiveCenter = CROSSHAIR_X + offsetPct` to `effectiveCenter = CROSSHAIR_X - offsetPct`.
+
+Notes slide right->left. Latency means sound is detected AFTER the note has moved past the visual crosshair. To compensate, the effective hit-zone must shift LEFT (lower %), not right. Positive `audioLatencyMs`/`displayLatencyMs` are recorded as positive deltas in AudioCalibration.tsx and DisplayCalibration.tsx (sound/perception arrives later than reality), confirming the sign.
+
+This is the smallest change needed; subsequent tasks (test update, debug overlay flip, geometry unification) build on it.

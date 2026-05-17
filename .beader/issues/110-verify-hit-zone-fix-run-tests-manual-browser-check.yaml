@@ -1,0 +1,22 @@
+---
+id: 110
+title: 'Verify hit-zone fix: run tests + manual browser check'
+type: task
+status: todo
+priority: 2
+parent: 106
+blocked_by:
+- 108
+- 109
+- 111
+created_at: 2026-05-17T17:24:00.166268302Z
+updated_at: 2026-05-17T17:24:44.825477063Z
+---
+
+1. Run `pnpm --filter test-client test` from repo root -- all geometry tests pass including the new width-parity test.
+2. Open the dev server and navigate to GameView with the Debug toggle ON.
+3. With no calibration set (audioLatencyMs=0, displayLatencyMs=0): verify the yellow dashed debug box overlays the cyan crosshair box pixel-perfectly at multiple viewport widths (try resizing browser).
+4. Set audioLatencyMs=200 in localStorage/settings: verify the yellow box visibly shifts LEFT of the cyan box and the purple latency-offset band fills the LEFT portion of the yellow box.
+5. Sing at the perceived crosshair moment with a calibrated latency -> hits should register correctly.
+
+Depends on all prior subtasks.

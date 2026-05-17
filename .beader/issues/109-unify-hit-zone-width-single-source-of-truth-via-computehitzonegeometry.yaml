@@ -1,0 +1,24 @@
+---
+id: 109
+title: 'Unify hit-zone width: single source of truth via computeHitZoneGeometry'
+type: feature
+status: todo
+priority: 1
+parent: 106
+blocked_by:
+- 107
+- 111
+created_at: 2026-05-17T17:24:00.155508934Z
+updated_at: 2026-05-17T17:24:44.812757625Z
+---
+
+Eliminate the visual mismatch between `.crosshair-zone` (160px CSS) and `.debug-hit-zone` (% from helper with cap).
+
+**Steps**:
+1. In `test-client/src/lib/hitZoneGeometry.ts`, remove the `Math.min(visualHalfPct, HIT_ZONE_HALF)` cap (line ~51-55) when both `containerWidthPx` and `crosshairHalfPx` are provided. Use `halfPct = (crosshairHalfPx / containerWidthPx) * 100` directly. Keep `HIT_ZONE_HALF` as the fallback when those inputs are absent.
+2. In `test-client/src/views/GameView.tsx` (`.crosshair-zone` JSX around line 367), change from hard-coded `width: '160px'` to `width: ${debugHitZone.halfPct * 2}%` (using the value returned by the same `computeHitZoneGeometry` call). This guarantees the cyan box and yellow debug box are geometrically identical by construction.
+3. Verify the WaveformCrosshair canvas (`CANVAS_WIDTH = 160`) still aligns. Either parameterize its width too, or leave at 160px since it remains centered.
+
+**Out of scope**: in-loop `hitZoneLeft`/`hitZoneRight` in `useGameEngine.ts` lines 230-256 continue to use `HIT_ZONE_HALF` for capture start/stop (generous capture window is intentional).
+
+Depends on sign-flip + test update.
