@@ -2,16 +2,16 @@
 id: 123
 title: 'Phase 5: Settings toggle + calibration bypass'
 type: task
-status: in_progress
+status: closed
 priority: 2
 parent: 118
 blocked_by:
 - 122
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-17T23:31:06.832411521Z
-updated_at: 2026-05-17T23:42:47.714028675Z
+updated_at: 2026-05-17T23:43:55.728173195Z
+closed_at: 2026-05-17T23:43:55.728172205Z
 ---
 
 Expose user-facing control over the feedback canceller and ensure it doesn't corrupt latency calibration.
@@ -26,3 +26,10 @@ Acceptance:
 - Toggle persists across reloads.
 - Toggle off → display behavior matches pre-feature.
 - Latency calibration result is consistent whether the toggle is on or off.
+
+---
+COMMENT
+2026-05-17T23:43:55.720450535Z
+author: witty-falcon
+
+Implemented in b678e21. feedbackCancellation:true added to GameSettings (migrates via spread-on-read). ConfigView toggle with helper text. GameView passes the setting as aecEnabled. useAudioStream gained a useEffect that posts setLatency to the live worklet whenever audioInputLatencyMs changes. CalibrateView is already isolated -- AudioCalibration owns its own AudioContext + getUserMedia, separate from the game graph, so the AEC is naturally bypassed during calibration. Build + 12/12 tests pass.

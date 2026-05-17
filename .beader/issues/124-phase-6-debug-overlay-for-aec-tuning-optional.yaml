@@ -2,13 +2,16 @@
 id: 124
 title: 'Phase 6: Debug overlay for AEC tuning (optional)'
 type: task
-status: todo
+status: in_progress
 priority: 3
 parent: 118
 blocked_by:
 - 122
+claimed_by: witty-falcon
+assignees:
+- witty-falcon
 created_at: 2026-05-17T23:31:06.840823551Z
-updated_at: 2026-05-17T23:31:10.965061672Z
+updated_at: 2026-05-17T23:44:24.093664230Z
 ---
 
 Behind the existing `settings.debugMode` flag, expose lightweight diagnostics for tuning the AEC.

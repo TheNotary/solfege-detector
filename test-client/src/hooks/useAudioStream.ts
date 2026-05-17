@@ -49,8 +49,21 @@ interface UseAudioStreamReturn {
    * fall back to `analyserNode` when this is `null`.
    */
   filteredAnalyserNode: AnalyserNode | null;
+  /**
+   * Latest AEC worklet diagnostics, sampled at roughly 10 Hz. `null` when
+   * the worklet isn't running. Intended for debug HUDs only.
+   */
+  aecStats: AecStats | null;
   startNoteCapture: () => void;
   stopNoteCapture: () => ArrayBuffer | null;
+}
+
+export interface AecStats {
+  delaySamples: number;
+  taps: number;
+  refEnergyDb: number;
+  micEnergyDb: number;
+  residualDb: number;
 }
 
 /**
@@ -76,6 +89,7 @@ export function useAudioStream(
    */
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [filteredAnalyserNode, setFilteredAnalyserNode] = useState<AnalyserNode | null>(null);
+  const [aecStats, setAecStats] = useState<AecStats | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -369,6 +383,14 @@ export function useAudioStream(
             }
             onVolumeFilteredRef.current(Math.sqrt(sumSq / samples.length));
           }
+        } else if (msg.type === "stats") {
+          setAecStats({
+            delaySamples: msg.delaySamples,
+            taps: msg.taps,
+            refEnergyDb: msg.refEnergyDb,
+            micEnergyDb: msg.micEnergyDb,
+            residualDb: msg.residualDb,
+          });
         }
       };
 
@@ -389,6 +411,7 @@ export function useAudioStream(
       }
       aecNodeRef.current = null;
       setFilteredAnalyserNode(null);
+      setAecStats(null);
     };
   }, [audioContext, referenceNode, aecEnabled]);
 
@@ -400,6 +423,7 @@ export function useAudioStream(
     sourceNode: sourceRef.current,
     analyserNode: analyserRef.current,
     filteredAnalyserNode,
+    aecStats,
     startNoteCapture,
     stopNoteCapture,
   };

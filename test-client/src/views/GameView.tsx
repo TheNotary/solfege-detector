@@ -100,7 +100,7 @@ export default function GameView(_props: GameViewProps) {
   // the AEC effect inside `useAudioStream` to wire up the worklet.
   const [referenceNode, setReferenceNode] = useState<AudioNode | null>(null);
 
-  const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
+  const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, aecStats, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
     useAudioStream({
       onChunk,
       // Display-side consumers prefer the cleaned (AEC) signal when the
@@ -214,7 +214,12 @@ export default function GameView(_props: GameViewProps) {
   // Waveform displacement (kept for visual reference / future use)
   // Display-side waveform/hit-zone visuals read from the cleaned analyser
   // when AEC is active; otherwise from the raw analyser (pre-drone or AEC off).
-  const displayAnalyserNode = filteredAnalyserNode ?? analyserNode;
+  // The `debugUseRaw` flag (debug HUD only) forces the raw analyser for an
+  // A/B comparison without rebuilding the audio graph.
+  const [debugUseRaw, setDebugUseRaw] = useState(false);
+  const displayAnalyserNode = debugUseRaw
+    ? analyserNode
+    : (filteredAnalyserNode ?? analyserNode);
   const waveformDisplacement = useWaveformDisplacement(displayAnalyserNode, isRecording);
   void waveformDisplacement; // used by WaveformCrosshair visually
 
@@ -532,6 +537,20 @@ export default function GameView(_props: GameViewProps) {
           <span className="debug-pitch">
             Bar Y: {displayPitchHz !== null ? `${freqToY(displayPitchHz, notePoints).toFixed(1)}%` : "—"}
           </span>
+          <span className="debug-pitch">
+            AEC: {aecStats
+              ? `res ${aecStats.residualDb.toFixed(1)} dB · mic ${aecStats.micEnergyDb.toFixed(1)} dB · ref ${aecStats.refEnergyDb.toFixed(1)} dB · d=${aecStats.delaySamples} · N=${aecStats.taps}`
+              : (filteredAnalyserNode ? "…" : "off")}
+          </span>
+          <label className="debug-toggle">
+            <input
+              type="checkbox"
+              checked={debugUseRaw}
+              onChange={(e) => setDebugUseRaw(e.target.checked)}
+              disabled={!filteredAnalyserNode}
+            />
+            A/B: use raw analyser
+          </label>
           <div className="volume-meter">
             <div
               className="volume-meter-fill"
