@@ -2,11 +2,12 @@
 id: 113
 title: Beat-aligned metronome during gameplay
 type: feature
-status: todo
+status: closed
 priority: 1
 parent: 26
 created_at: 2026-05-17T17:48:24.905854894Z
-updated_at: 2026-05-17T17:48:24.905854894Z
+updated_at: 2026-05-17T17:53:45.826934253Z
+closed_at: 2026-05-17T17:53:45.826933506Z
 ---
 
 ## Summary

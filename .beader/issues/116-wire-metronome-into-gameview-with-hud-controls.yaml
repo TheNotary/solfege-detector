@@ -2,17 +2,17 @@
 id: 116
 title: Wire metronome into GameView with HUD controls
 type: task
-status: in_progress
+status: closed
 priority: 1
 parent: 113
 blocked_by:
 - 114
 - 115
-claimed_by: agile-river
 assignees:
 - agile-river
 created_at: 2026-05-17T17:48:58.796485609Z
-updated_at: 2026-05-17T17:50:58.810529260Z
+updated_at: 2026-05-17T17:53:31.261708853Z
+closed_at: 2026-05-17T17:53:31.261708108Z
 ---
 
 Integrate the `useMetronome` hook (issue #114) and the new persisted settings (issue #115) into `test-client/src/views/GameView.tsx`, and add HUD controls so the player can toggle/adjust the metronome live.
@@ -38,3 +38,10 @@ Integrate the `useMetronome` hook (issue #114) and the new persisted settings (i
 - Manual: on a started game, clicks audibly tick from frame 1; toggling the HUD button silences/resumes them mid-game; volume slider takes effect on the next beat; offset slider shifts beats audibly; reloading the page preserves all three values.
 
 **Depends on:** #114 (hook) and #115 (settings).
+
+---
+COMMENT
+2026-05-17T17:53:31.257102083Z
+author: agile-river
+
+Wired useMetronome into GameView. Added 🥁 toggle / volume / offset HUD controls next to the drone control, with matching .metronome-control CSS. Start/stop tied to handleToggle, Esc handler, and a live useEffect that reacts to the enabled toggle flipping while a game is running. Volume changes propagate via setVolume; tempo and offset apply on the next beat via getBpm/getOffsetSec closures backed by refs. typecheck clean; vitest 8/8 passing; lint failures are pre-existing 2-vs-4 space indent conflicts across the whole repo (unrelated to this change).
