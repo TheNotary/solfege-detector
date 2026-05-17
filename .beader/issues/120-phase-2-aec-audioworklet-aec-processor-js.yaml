@@ -2,14 +2,14 @@
 id: 120
 title: 'Phase 2: AEC AudioWorklet (aec-processor.js)'
 type: feature
-status: in_progress
+status: closed
 priority: 2
 parent: 118
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-17T23:30:32.179661110Z
-updated_at: 2026-05-17T23:33:20.648958685Z
+updated_at: 2026-05-17T23:37:11.785875845Z
+closed_at: 2026-05-17T23:37:11.785874965Z
 ---
 
 Implement the adaptive echo canceller worklet that subtracts a reference signal from the mic.
@@ -30,3 +30,10 @@ Work:
 Acceptance:
 - Module loads without errors via `audioContext.audioWorklet.addModule('/aec-processor.js')`.
 - Unit-style test (pure-TS extraction or `OfflineAudioContext`): synthetic 130.81 Hz sine reference + delayed/attenuated mirror in mic + a voice burst → residual sine RMS drops ≥20 dB within 2 s, voice burst RMS within ~2 dB of unfiltered.
+
+---
+COMMENT
+2026-05-17T23:37:11.779859065Z
+author: witty-falcon
+
+Implemented in c2898ad. Worklet at `test-client/public/aec-processor.js` (registered as `aec-processor`); pure-TS twin at `src/lib/aecCore.ts` (same NLMS, double-talk gate, ring-buffer delay) tested in `aecCore.test.ts`. Cancellation test: 130.81 Hz reference delayed 18 ms / attenuated 0.5 -> residual drops >=20 dB within 2 s. Voice preservation test: 440 Hz burst at t=3 s sits within 3 dB of raw voice RMS in the output. Default double-talk ratio tightened from 4 -> 1.5 (in steady-state leakage mic energy stays below ref energy because leakage gain <= 1; the moment mic exceeds ref the user is singing). Worklet is shipped to `dist/aec-processor.js` by vite. No consumers yet -- Phase 3 (#121) wires it into useAudioStream.

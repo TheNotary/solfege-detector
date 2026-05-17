@@ -92,12 +92,23 @@ export default function GameView(_props: GameViewProps) {
     [trimToNearestOnset]
   );
 
-  const { startRecording, stopRecording, isRecording, analyserNode, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
+  // Forward-declared slot for the reference-mix tap. We can't pass `referenceMix`
+  // (built by `useReferenceMix` below) directly into `useAudioStream`, because
+  // `useReferenceMix` itself needs the `AudioContext` that `useAudioStream`
+  // creates. We bridge with a state slot: a small effect below syncs the real
+  // node into this slot once both halves of the graph exist, which triggers
+  // the AEC effect inside `useAudioStream` to wire up the worklet.
+  const [referenceNode, setReferenceNode] = useState<AudioNode | null>(null);
+
+  const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
     useAudioStream({
       onChunk,
       onVolume,
       onCaptureChunk: feedSamples,
       trimCapture,
+      referenceNode,
+      aecEnabled: true,
+      audioInputLatencyMs: settings.audioLatencyMs,
     });
 
   // Wrap startNoteCapture to also reset onset detector
@@ -166,6 +177,10 @@ export default function GameView(_props: GameViewProps) {
 
   // Drone — plays at the configured root frequency
   const referenceMix = useReferenceMix(audioContext);
+  // Bridge the reference-mix tap up to `useAudioStream` (declared earlier).
+  useEffect(() => {
+    setReferenceNode(referenceMix);
+  }, [referenceMix]);
   const { startDrone, stopDrone, isDroning, setDroneVolume } = useDrone(
     audioContext,
     rootFrequencyHz,
