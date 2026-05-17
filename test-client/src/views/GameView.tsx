@@ -171,18 +171,16 @@ export default function GameView(_props: GameViewProps) {
   const waveformDisplacement = useWaveformDisplacement(analyserNode, isRecording);
   void waveformDisplacement; // used by WaveformCrosshair visually
 
-  // Debug hit zone geometry (centerPct, halfPct, offsetPct)
-  const [debugHitZone, setDebugHitZone] = useState<{ centerPct: number; halfPct: number; offsetPct: number } | null>(null);
+  // Hit-zone geometry (centerPct, halfPct, offsetPct).  Computed every
+  // frame so the cyan visual crosshair-zone and the yellow debug zone
+  // share the same source of truth — see #109.
+  const [hitZoneGeometry, setHitZoneGeometry] = useState<{ centerPct: number; halfPct: number; offsetPct: number } | null>(null);
+  // The debug overlay is only shown while the game is running and the
+  // user has enabled the toggle.
+  const debugHitZone = isRunning && isRecording ? hitZoneGeometry : null;
 
   // Check for hits every frame when running.
-  // The hit zone matches the visual crosshair zone (160px wide = 80px each side).
   useEffect(() => {
-    if (!isRunning || !isRecording) {
-      setDebugHitZone(null);
-      return;
-    }
-
-    // Convert the fixed crosshair-zone visual width to a % of container
     const containerWidth = containerRef.current?.clientWidth ?? 1;
     const { effectiveCenter, halfPct: effectiveHalf, offsetPct } = computeHitZoneGeometry({
       bpm: speed,
@@ -191,8 +189,9 @@ export default function GameView(_props: GameViewProps) {
       containerWidthPx: containerWidth,
       crosshairHalfPx: 80,
     });
+    setHitZoneGeometry({ centerPct: effectiveCenter, halfPct: effectiveHalf, offsetPct });
 
-    setDebugHitZone({ centerPct: effectiveCenter, halfPct: effectiveHalf, offsetPct });
+    if (!isRunning || !isRecording) return;
 
     const hit = checkHit(isSounding && isQualitySample, effectiveHalf);
     if (hit) {
@@ -359,13 +358,15 @@ export default function GameView(_props: GameViewProps) {
         );
       })}
 
-      {/* Crosshair */}
+      {/* Crosshair.  Width is derived from the same helper that powers the
+          debug overlay so the cyan box and the yellow debug box are
+          geometrically identical by construction (see #109). */}
       <WaveformCrosshair analyserNode={analyserNode} x={CROSSHAIR_X} isRecording={isRecording} />
       <div
         className="crosshair-zone"
         style={{
           left: `${CROSSHAIR_X}%`,
-          width: "160px",
+          width: hitZoneGeometry ? `${hitZoneGeometry.halfPct * 2}%` : "160px",
           transform: "translateX(-50%)",
         }}
       />

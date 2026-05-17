@@ -52,8 +52,12 @@ export function computeHitZoneGeometry(input: HitZoneGeometryInput): HitZoneGeom
 
   let halfPct: number;
   if (containerWidthPx != null && containerWidthPx > 0) {
-    const visualHalfPct = (crosshairHalfPx / containerWidthPx) * 100;
-    halfPct = Math.min(visualHalfPct, HIT_ZONE_HALF);
+    // Derive half-width directly from the visual crosshair pixel width so
+    // the debug hit-zone is geometrically identical to the on-screen
+    // .crosshair-zone box at every viewport width.  The HIT_ZONE_HALF cap
+    // used to live here as a safety net but produced a visible width
+    // mismatch on narrow viewports — see #109.
+    halfPct = (crosshairHalfPx / containerWidthPx) * 100;
   } else {
     halfPct = HIT_ZONE_HALF;
   }
