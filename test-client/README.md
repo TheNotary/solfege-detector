@@ -2,6 +2,19 @@
 
 React + TypeScript rhythm-game UI for the solfege detector. Notes scroll across a staff; the player sings each syllable as it crosses the crosshair. The client captures microphone audio, runs client-side onset detection, and streams per-note audio to the backend via a two-frame WebSocket protocol (binary PCM + JSON `note_event`).
 
+### Application Structure
+
+The app uses React Router with four views:
+
+| Route | View | Description |
+|-------|------|-------------|
+| `/` | MainMenu | Play Game, Calibrate Latency, Configurations |
+| `/play` | GameView | Rhythm game with sliding notes, crosshair, pitch detection |
+| `/calibrate` | CalibrateView | Audio + display latency calibration |
+| `/config` | ConfigView | Speed, responsiveness, root note, drone, debug settings |
+
+Press **Esc** during gameplay to return to the main menu. Game settings are persisted to localStorage.
+
 ### Starting the Server
 
 ```
