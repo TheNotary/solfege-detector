@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGameSettings, type GameSettings } from "../hooks/useGameSettings";
+import LatencyCalibrator from "../components/LatencyCalibrator";
 import "./ConfigView.css";
 
 export default function ConfigView() {
@@ -143,6 +144,19 @@ export default function ConfigView() {
             click reaches the mic and briefly blanks the volume gate,
             onset detector, and waveform during that window. Audio sent
             to the backend is unaffected.
+          </small>
+        </div>
+
+        {/* Audio latency calibration */}
+        <div className="config-field">
+          <label>Audio Latency</label>
+          <LatencyCalibrator />
+          <small className="field-help">
+            Measures the round-trip from your speakers back into the mic.
+            Plays two short white-noise bursts (~0.3 s total) and saves
+            the result. Used by the click-mask above and by Feedback
+            Cancellation to align its echo cancellation. Re-run when you
+            change audio devices.
           </small>
         </div>
 
