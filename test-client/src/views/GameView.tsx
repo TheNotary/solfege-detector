@@ -173,13 +173,26 @@ export default function GameView(_props: GameViewProps) {
 
   // Predicted mic-arrival windows for each scheduled metronome click. The
   // four display-side callbacks below consult this to drop click leakage
-  // before it can trip hit/onset detection. Uses the persisted/calibrated
-  // `audioLatencyMs` setting (not `aecStats.delaySamples`), so masking
-  // works even when `feedbackCancellation` is off.
+  // before it can trip hit/onset detection.
+  //
+  // Delay source priority (per click):
+  //   1. Live AEC-measured delay (`aecStats.delaySamples`) when AEC is
+  //      running. This is the actual speaker→mic round-trip in samples
+  //      and tracks the hardware in real time.
+  //   2. Persisted/calibrated `audioLatencyMs` setting. Filled in by the
+  //      auto-calibrator the first time AEC runs and persisted across
+  //      sessions, so masking works when AEC is later toggled off.
+  // Both sources can be 0 if neither has run; the mask just lands on the
+  // click's play time, which the user will see as a too-narrow dip.
   const audioLatencyMsRef = useRef(settings.audioLatencyMs);
   audioLatencyMsRef.current = settings.audioLatencyMs;
+  const aecDelayMsRef = useRef(0);
   const clickMask = useClickMask({
-    getDelayMs: () => audioLatencyMsRef.current,
+    getDelayMs: () => {
+      const aec = aecDelayMsRef.current;
+      if (aec > 0) return aec;
+      return audioLatencyMsRef.current;
+    },
   });
   // Live mirrors consumed by the hot callbacks below so they don't need to
   // be reconstructed (and the AEC `filteredActiveRef` ordering preserved)
@@ -307,6 +320,20 @@ export default function GameView(_props: GameViewProps) {
       clickMask.clear();
     }
   }, [settings.clickMaskEnabled, clickMask]);
+
+  // Track the live AEC-measured speaker→mic round-trip in ms so the click
+  // mask centres its windows on the actual mic-arrival time rather than
+  // the (often-stale) persisted `audioLatencyMs` setting. Only mirrored
+  // while AEC is running and we have a sample rate to convert with; the
+  // mask's `getDelayMs` falls back to `audioLatencyMs` when this is 0.
+  useEffect(() => {
+    const sr = audioContext?.sampleRate ?? 0;
+    if (aecStats && sr > 0 && aecStats.delaySamples > 0) {
+      aecDelayMsRef.current = (aecStats.delaySamples / sr) * 1000;
+    } else {
+      aecDelayMsRef.current = 0;
+    }
+  }, [aecStats, audioContext]);
 
   // Auto-calibrate the AEC bulk delay once the worklet is wired up and a
   // probe signal (metronome and/or drone) is available. Without this the

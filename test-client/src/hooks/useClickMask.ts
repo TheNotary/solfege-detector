@@ -62,8 +62,17 @@ export type UseClickMaskOptions = ClickMaskStoreOptions;
 export type UseClickMaskReturn = ClickMaskStore;
 
 export const CLICK_MASK_DEFAULTS = {
-  maskDurationMs: 80,
-  leadGuardMs: 10,
+  // Click oscillator itself is ~20 ms (1 ms attack + 19 ms release), but
+  // the speaker's physical ringing, room reverb, and any auto-gain on the
+  // input chain extend the audible click well past that — empirically the
+  // leakage tail trips onset detection up to ~200 ms after the play time.
+  // Pick a duration that comfortably covers that envelope.
+  maskDurationMs: 220,
+  // Speaker→mic latency varies with audio backend, buffer sizes, and
+  // bluetooth jitter. Even with a calibrated delay the actual arrival can
+  // be ~20–30 ms earlier than predicted; the lead guard absorbs that so
+  // the click's leading edge never escapes the window.
+  leadGuardMs: 40,
   /** Drop windows whose endAudioTime is more than this far in the past. */
   gcLookbackSec: 1,
 } as const;
