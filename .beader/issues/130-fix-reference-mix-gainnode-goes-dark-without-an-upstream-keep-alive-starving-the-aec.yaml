@@ -1,0 +1,13 @@
+---
+id: 130
+title: 'Fix: reference mix GainNode goes dark without an upstream keep-alive, starving the AEC'
+type: bug
+status: in_progress
+priority: 1
+parent: 118
+claimed_by: witty-falcon
+assignees:
+- witty-falcon
+created_at: 2026-05-18T01:30:21.196812102Z
+updated_at: 2026-05-18T01:30:41.639339639Z
+---

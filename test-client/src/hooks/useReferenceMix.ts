@@ -27,9 +27,33 @@ export function useReferenceMix(
     const node = audioContext.createGain();
     node.gain.value = 1;
     refMixRef.current = node;
+
+    // Keep-alive: without at least one upstream connection, the Web Audio
+    // engine treats this GainNode as "silent" and downstream
+    // AudioWorkletNodes receive an empty `inputs[1] = []` channel array —
+    // i.e. their reference input is effectively unwired until the first
+    // drone/metronome connect() lands, and may go dark again between
+    // metronome ticks. A ConstantSourceNode with offset=0 produces an
+    // unbroken stream of zeros, ensuring the channel is always allocated
+    // and audible signal mixes in cleanly the moment a producer connects.
+    const keepAlive = audioContext.createConstantSource();
+    keepAlive.offset.value = 0;
+    keepAlive.connect(node);
+    keepAlive.start();
+
     setRefMix(node);
 
     return () => {
+      try {
+        keepAlive.stop();
+      } catch {
+        // already stopped
+      }
+      try {
+        keepAlive.disconnect();
+      } catch {
+        // already disconnected
+      }
       try {
         node.disconnect();
       } catch {
