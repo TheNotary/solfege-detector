@@ -132,3 +132,252 @@ describe("AecCore — NLMS adaptive echo canceller", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Drone-vs-click characterization suite.
+//
+// Background: in the running game the drone is canceled well but the
+// metronome clicks are NOT. The AEC core itself handles brief transients
+// fine when given a perfectly time-aligned reference (see the "isolated
+// click" test below), so the failure has to live elsewhere on the path. The
+// remaining suspects are:
+//
+//   (1) Timing mismatch — the reference sample arriving at the AEC processor
+//       is offset from the leakage in the mic by N samples. The bulk-delay
+//       calibration is tuned for the steady-state drone; even a few ms of
+//       error wipes out cancellation of short transients while leaving a
+//       sustained tone largely unaffected.
+//   (2) Linear distortion on the speaker -> mic path — a real speaker is not
+//       flat. A low-pass roll-off (or any non-trivial impulse response) means
+//       the leakage of the click is no longer a scaled/delayed copy of the
+//       reference. NLMS *can* learn this IF given enough in-band reference
+//       energy, but a 20 ms click occurrence provides only ~960 samples of
+//       1500 Hz training per click — and the drone (with no 1500 Hz energy)
+//       dominates the gradient between clicks.
+//
+// These tests reproduce each hypothesis in isolation so we can see which one
+// matches the observed failure and design the fix.
+// ---------------------------------------------------------------------------
+
+/** Short percussive click matching the metronome envelope. */
+function click(
+  freqHz: number,
+  amplitude: number,
+  attackSec = 0.001,
+  releaseSec = 0.019,
+): Float32Array {
+  const totalSec = attackSec + releaseSec;
+  const n = Math.round(totalSec * SR);
+  const out = new Float32Array(n);
+  const w = (2 * Math.PI * freqHz) / SR;
+  const attackN = Math.round(attackSec * SR);
+  for (let i = 0; i < n; i++) {
+    let env: number;
+    if (i < attackN) {
+      env = i / Math.max(1, attackN);
+    } else {
+      env = 1 - (i - attackN) / Math.max(1, n - attackN);
+    }
+    out[i] = amplitude * env * Math.sin(w * i);
+  }
+  return out;
+}
+
+/** Schedule a buffer into a longer track at sample offset `atSample`. */
+function addAt(target: Float32Array, src: Float32Array, atSample: number): void {
+  for (let i = 0; i < src.length; i++) {
+    const j = atSample + i;
+    if (j >= 0 && j < target.length) target[j] += src[i];
+  }
+}
+
+/** Apply a 1-pole IIR low-pass at cutoff `fc` Hz to simulate a speaker. */
+function lowPass(signal: Float32Array, fcHz: number): Float32Array {
+  // y[n] = y[n-1] + a * (x[n] - y[n-1]); a = dt / (RC + dt)
+  const dt = 1 / SR;
+  const rc = 1 / (2 * Math.PI * fcHz);
+  const a = dt / (rc + dt);
+  const out = new Float32Array(signal.length);
+  let y = 0;
+  for (let i = 0; i < signal.length; i++) {
+    y = y + a * (signal[i] - y);
+    out[i] = y;
+  }
+  return out;
+}
+
+describe("AecCore — drone vs. click cancellation characterization", () => {
+  const delayMs = 18;
+  const delaySamples = Math.round((delayMs / 1000) * SR);
+  const leakageGain = 0.5;
+
+  /** Ideal leakage: delay + flat attenuation + trace noise. */
+  function leakIdeal(ref: Float32Array): Float32Array {
+    const out = delayAndAttenuate(ref, delaySamples, leakageGain);
+    for (let i = 0; i < out.length; i++) out[i] += (Math.random() * 2 - 1) * 1e-4;
+    return out;
+  }
+
+  function makeAec(): AecCore {
+    const aec = new AecCore();
+    aec.setDelayMs(delayMs, SR);
+    return aec;
+  }
+
+  it("baseline: cancels a 5s sustained drone deeply (ideal leakage model)", () => {
+    const ref = sine(130.81, 5.0, 0.3);
+    const mic = leakIdeal(ref);
+    const aec = makeAec();
+    const out = new Float32Array(mic.length);
+    aec.processBlock(mic, ref, out);
+    const cancellationDb =
+      rmsDb(mic, Math.round(2.0 * SR)) - rmsDb(out, Math.round(2.0 * SR));
+    expect(cancellationDb).toBeGreaterThanOrEqual(20);
+  });
+
+  it("baseline: cancels an ISOLATED click ≥15 dB when reference is perfectly aligned (ideal leakage)", () => {
+    // Sanity: AecCore can in principle cancel a single transient. If this
+    // ever regresses, the failure on the real device is moot until this is
+    // fixed first.
+    const totalN = Math.round(2.5 * SR);
+    const ref = new Float32Array(totalN);
+    addAt(ref, click(1500, 0.5), Math.round(1.0 * SR));
+    const mic = leakIdeal(ref);
+    const aec = makeAec();
+    const out = new Float32Array(mic.length);
+    aec.processBlock(mic, ref, out);
+
+    const winStart = Math.round(1.0 * SR) + delaySamples;
+    const winEnd = winStart + Math.round(0.02 * SR);
+    const cancellationDb =
+      rmsDb(mic, winStart, winEnd) - rmsDb(out, winStart, winEnd);
+    expect(cancellationDb).toBeGreaterThanOrEqual(15);
+  });
+
+  // -------------------------------------------------------------------------
+  // Hypothesis (1): timing/delay mismatch.
+  // -------------------------------------------------------------------------
+
+  it("HYPOTHESIS 1: a small (~3 ms) delay mismatch barely affects the drone but destroys click cancellation", () => {
+    // True speaker -> mic delay is 18 ms but the AEC was calibrated for 21 ms
+    // (a 3 ms / ~132-sample misalignment). This is well within what a
+    // careless `audioInputLatencyMs` calibration could leave on the table.
+    const calibratedDelayMs = 21;
+
+    const totalSec = 5.0;
+    const totalN = Math.round(totalSec * SR);
+    const ref = sine(130.81, totalSec, 0.3); // drone
+    addAt(ref, click(1500, 0.5), Math.round(4.0 * SR)); // click at t=4s
+
+    const mic = leakIdeal(ref); // mic still sees true 18ms delay
+
+    const aec = new AecCore();
+    aec.setDelayMs(calibratedDelayMs, SR);
+    const out = new Float32Array(mic.length);
+    aec.processBlock(mic, ref, out);
+
+    const droneStart = Math.round(3.5 * SR);
+    const droneEnd = Math.round(3.9 * SR);
+    const droneCancelDb =
+      rmsDb(mic, droneStart, droneEnd) - rmsDb(out, droneStart, droneEnd);
+
+    const clickAt = Math.round(4.0 * SR) + delaySamples;
+    const clickCancelDb =
+      rmsDb(mic, clickAt, clickAt + Math.round(0.02 * SR)) -
+      rmsDb(out, clickAt, clickAt + Math.round(0.02 * SR));
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[diag H1] drone=${droneCancelDb.toFixed(1)} dB ` +
+        `click=${clickCancelDb.toFixed(1)} dB`,
+    );
+
+    // The 256-tap filter can absorb the misalignment for the steady-state
+    // drone (shift the impulse response forward by 3 ms inside the tap
+    // window) so the drone is still well-canceled…
+    expect(droneCancelDb).toBeGreaterThanOrEqual(15);
+    // …but on the short click the filter has no time to relearn — the
+    // residual stays close to the raw click level (cancellation < 6 dB).
+    // If this assertion fails (i.e. cancellation is actually high), the
+    // observed real-world bug is NOT a calibration issue.
+    expect(clickCancelDb).toBeLessThan(6);
+  });
+
+  // -------------------------------------------------------------------------
+  // Hypothesis (2): speaker -> mic linear distortion (low-pass / EQ).
+  // -------------------------------------------------------------------------
+
+  it("HYPOTHESIS 2 (REFUTED): a realistic speaker low-pass does NOT prevent click cancellation", () => {
+    // Originally suspected: speaker EQ distorts the click's leakage shape so
+    // the per-click reference can't be subtracted. In fact a 256-tap FIR
+    // learns the low-pass response easily from the clicks themselves —
+    // cancellation remains comparable to the drone. So linear distortion on
+    // the speaker path is NOT the culprit in production.
+    const speakerCutoffHz = 4000;
+
+    const totalSec = 8.0;
+    const totalN = Math.round(totalSec * SR);
+    const ref = sine(130.81, totalSec, 0.3);
+    const clickPositions: number[] = [];
+    for (let t = 0.5; t < totalSec - 0.1; t += 0.5) {
+      const at = Math.round(t * SR);
+      clickPositions.push(at);
+      addAt(ref, click(1500, 0.5), at);
+    }
+
+    const emitted = lowPass(ref, speakerCutoffHz);
+    const mic = leakIdeal(emitted);
+
+    const aec = makeAec();
+    const out = new Float32Array(mic.length);
+    aec.processBlock(mic, ref, out);
+
+    const droneStart = Math.round(7.4 * SR);
+    const droneEnd = Math.round(7.6 * SR);
+    const droneCancelDb =
+      rmsDb(mic, droneStart, droneEnd) - rmsDb(out, droneStart, droneEnd);
+
+    const lastClick = clickPositions[clickPositions.length - 1] + delaySamples;
+    const clickCancelDb =
+      rmsDb(mic, lastClick, lastClick + Math.round(0.02 * SR)) -
+      rmsDb(out, lastClick, lastClick + Math.round(0.02 * SR));
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[diag H2] drone=${droneCancelDb.toFixed(1)} dB ` +
+        `click=${clickCancelDb.toFixed(1)} dB`,
+    );
+
+    expect(droneCancelDb).toBeGreaterThanOrEqual(20);
+    // Click also gets strong cancellation — hypothesis refuted.
+    expect(clickCancelDb).toBeGreaterThanOrEqual(20);
+  });
+
+  it("CONTROL: with click-rich pre-training the AEC handles clicks even through the speaker low-pass", () => {
+    // If we give the filter dense in-band training BEFORE the speaker
+    // distortion is applied to the leakage, can it still learn? This proves
+    // the failure mode in H2 is about reference spectral coverage, not the
+    // algorithm.
+    const speakerCutoffHz = 4000;
+    const totalSec = 4.6;
+    const totalN = Math.round(totalSec * SR);
+    const ref = new Float32Array(totalN);
+    for (let t = 0.0; t < 3.5; t += 0.025) {
+      addAt(ref, click(1500, 0.5), Math.round(t * SR));
+    }
+    const measureAt = Math.round(4.5 * SR);
+    addAt(ref, click(1500, 0.5), measureAt);
+
+    const emitted = lowPass(ref, speakerCutoffHz);
+    const mic = leakIdeal(emitted);
+    const aec = makeAec();
+    const out = new Float32Array(mic.length);
+    aec.processBlock(mic, ref, out);
+
+    const winStart = measureAt + delaySamples;
+    const winEnd = winStart + Math.round(0.02 * SR);
+    const cancellationDb =
+      rmsDb(mic, winStart, winEnd) - rmsDb(out, winStart, winEnd);
+    expect(cancellationDb).toBeGreaterThanOrEqual(10);
+  });
+});

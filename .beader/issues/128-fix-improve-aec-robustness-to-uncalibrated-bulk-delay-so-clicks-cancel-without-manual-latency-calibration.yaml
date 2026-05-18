@@ -1,0 +1,25 @@
+---
+id: 128
+title: 'Fix: improve AEC robustness to uncalibrated bulk delay so clicks cancel without manual latency calibration'
+type: feature
+status: todo
+priority: 2
+parent: 118
+created_at: 2026-05-18T00:50:01.406426299Z
+updated_at: 2026-05-18T00:50:13.048602779Z
+---
+
+---
+COMMENT
+2026-05-18T00:50:13.048600799Z
+author: witty-falcon
+
+See #127 for the diagnosis (bulk-delay miscalibration kills click cancellation even when drone cancellation looks fine).
+
+Fix options to evaluate, smallest blast radius first:
+
+1. **Default `audioLatencyMs` to a reasonable midpoint** (e.g. 15 ms) in `useGameSettings.ts` and surface a stronger "calibrate first" CTA in the main menu when at default.
+2. **Auto-delay-search warmup**: when `startRecording` fires and the drone is running, sweep `setDelayMs` across 0–40 ms (e.g. in 2 ms steps), measure `residualDb` after 0.5 s of adaptation per candidate, and lock in the minimum. Reset weights between candidates.
+3. **Expand FIR length** to ~1024 taps (~23 ms @ 44.1 kHz) so the filter itself can absorb a worst-case uncalibrated delay. Trade-off: slower convergence and ~4× compute per sample.
+
+The behavioral tests added in #127 already give us regression coverage for any of these — repoint the H1 test's calibration mismatch and assert click cancellation ≥ 15 dB instead of < 6 dB to verify the fix.

@@ -1,0 +1,44 @@
+---
+id: 127
+title: 'Diagnose: metronome clicks are not canceled by AEC while drone is'
+type: task
+status: closed
+priority: 2
+parent: 118
+created_at: 2026-05-18T00:46:28.863374752Z
+updated_at: 2026-05-18T00:49:55.502516639Z
+closed_at: 2026-05-18T00:49:55.502515539Z
+---
+
+---
+COMMENT
+2026-05-18T00:49:55.495413169Z
+author: witty-falcon
+
+**Diagnosis: bulk-delay calibration mismatch, not algorithm.**
+
+Added 5 new behavioral tests under `test-client/src/lib/aecCore.test.ts` ("AecCore — drone vs. click cancellation characterization") modeling drone vs. clicks against the leakage path.
+
+Findings:
+
+| Scenario | Drone cancellation | Click cancellation |
+|---|---|---|
+| Ideal leakage, correct delay | 65 dB | 32 dB (isolated) / 35 dB (after 14 reps) |
+| Ideal leakage, **3 ms delay mismatch** | **64.8 dB** | **2.8 dB** |
+| 4 kHz speaker low-pass, correct delay | 52 dB | 44 dB |
+
+Conclusion:
+1. `AecCore` is not the problem — it cancels brief transients fine when the bulk delay is correct.
+2. Speaker EQ / linear distortion on the speaker→mic path is not the problem either — the 256-tap FIR easily learns a low-pass response from the clicks themselves.
+3. **A small (~3 ms / ~132 sample) bulk-delay miscalibration is the smoking gun.** It barely dents drone cancellation because a steady-state sinusoid can be canceled at any phase shift the FIR encodes, but it utterly destroys click cancellation because a 20 ms click ends before NLMS has time to relearn the alignment.
+
+Production smoking gun:
+- `useGameSettings.audioLatencyMs` defaults to **0**.
+- `GameView` passes it straight into `useAudioStream({ audioInputLatencyMs })`, which calls `aec.setDelayMs(0, sr)`.
+- The real speaker→mic delay on a laptop is typically 10–30 ms, completely outside the 256-tap (~5.8 ms @ 44.1 kHz) FIR window.
+- Therefore: an uncalibrated user (the default) gets ~drone cancellation and ~no click cancellation. This matches the report exactly.
+
+Proposed fix paths (file as follow-up):
+- (cheapest) Bump default `audioLatencyMs` to a reasonable midpoint (~15 ms) and document calibration as required.
+- (better) Auto-search for the best bulk delay by sweeping `setDelayMs` over a plausible range during a short `startRecording()` warmup using the drone as a reference and picking the minimum residualDb.
+- (best) Expand the FIR (e.g. 1024 taps ≈ 23 ms) so an uncalibrated delay can be absorbed by the filter itself, at the cost of slower convergence and more compute per sample.
