@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "source ../.env.build && vite build",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -21,6 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@playwright/test": "^1.60.0",
     "@types/canvas-confetti": "^1.9.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",

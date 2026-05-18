@@ -100,22 +100,69 @@ export default function GameView(_props: GameViewProps) {
   // the AEC effect inside `useAudioStream` to wire up the worklet.
   const [referenceNode, setReferenceNode] = useState<AudioNode | null>(null);
 
+  // Dedup raw vs. filtered display-side callbacks without referencing the
+  // hook's own destructured result (which would be a TDZ access). As soon as
+  // the first filtered frame arrives we flip `filteredActiveRef` and ignore
+  // subsequent raw events for the same consumers; an effect below resets the
+  // flag when the AEC tears down so raw events resume.
+  const filteredActiveRef = useRef(false);
+
+  const onVolumeRaw = useCallback(
+    (rms: number) => {
+      if (filteredActiveRef.current) return;
+      onVolume(rms);
+    },
+    [onVolume],
+  );
+  const onVolumeFilteredCb = useCallback(
+    (rms: number) => {
+      filteredActiveRef.current = true;
+      onVolume(rms);
+    },
+    [onVolume],
+  );
+  const feedSamplesRaw = useCallback(
+    (samples: Float32Array) => {
+      if (filteredActiveRef.current) return;
+      feedSamples(samples);
+    },
+    [feedSamples],
+  );
+  const feedSamplesFiltered = useCallback(
+    (samples: Float32Array) => {
+      filteredActiveRef.current = true;
+      feedSamples(samples);
+    },
+    [feedSamples],
+  );
+
   const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, aecStats, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
     useAudioStream({
       onChunk,
       // Display-side consumers prefer the cleaned (AEC) signal when the
       // worklet is running. When it isn't (e.g. before the reference mix is
       // wired up, or AEC disabled), we fall back to the raw mic so the
-      // confetti gate and onset detector still work.
-      onVolume: filteredAnalyserNode ? undefined : onVolume,
-      onVolumeFiltered: onVolume,
-      onCaptureChunk: filteredAnalyserNode ? undefined : feedSamples,
-      onCaptureChunkFiltered: feedSamples,
+      // confetti gate and onset detector still work. The raw vs. filtered
+      // routing is done via `filteredActiveRef` inside the callbacks above
+      // -- referencing `filteredAnalyserNode` directly here would be a TDZ
+      // access since it's destructured from this same call.
+      onVolume: onVolumeRaw,
+      onVolumeFiltered: onVolumeFilteredCb,
+      onCaptureChunk: feedSamplesRaw,
+      onCaptureChunkFiltered: feedSamplesFiltered,
       trimCapture,
       referenceNode,
       aecEnabled: settings.feedbackCancellation,
       audioInputLatencyMs: settings.audioLatencyMs,
     });
+
+  // Reset the raw/filtered dedup flag whenever the AEC tears down so the raw
+  // callbacks resume driving display-side consumers.
+  useEffect(() => {
+    if (filteredAnalyserNode === null) {
+      filteredActiveRef.current = false;
+    }
+  }, [filteredAnalyserNode]);
 
   // Wrap startNoteCapture to also reset onset detector
   const startNoteCapture = useCallback(() => {
@@ -241,7 +288,21 @@ export default function GameView(_props: GameViewProps) {
       containerWidthPx: containerWidth,
       crosshairHalfPx: 80,
     });
-    setHitZoneGeometry({ centerPct: effectiveCenter, halfPct: effectiveHalf, offsetPct });
+    // Bail out of setState when the computed geometry is unchanged; otherwise
+    // this effect (deliberately without a dependency array so it re-runs on
+    // every render-driven update) would feed back into itself and trip
+    // React's "Maximum update depth exceeded" guard at mount.
+    setHitZoneGeometry((prev) => {
+      if (
+        prev &&
+        prev.centerPct === effectiveCenter &&
+        prev.halfPct === effectiveHalf &&
+        prev.offsetPct === offsetPct
+      ) {
+        return prev;
+      }
+      return { centerPct: effectiveCenter, halfPct: effectiveHalf, offsetPct };
+    });
 
     if (!isRunning || !isRecording) return;
 

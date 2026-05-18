@@ -33,6 +33,14 @@ ws://localhost:8000/ws
 http://localhost:8000
 ```
 
+### Tests
+
+- `pnpm test` — unit tests (vitest) under `src/**/*.test.ts`.
+- `pnpm test:e2e` — headless integration tests (Playwright) under `e2e/**/*.spec.ts`. Boots a vite dev server on port 5174 and runs Chromium with `--use-fake-ui-for-media-stream --use-fake-device-for-media-stream` so `getUserMedia()` auto-grants a synthetic mic. Smoke-tests every top-level route and fails the build on any unexpected `console.error` or uncaught page error.
+- `pnpm test:e2e:headed` — same, but with a visible browser window for debugging.
+
+First-time setup: `pnpm exec playwright install chromium` (the browser binary is downloaded once into `~/.cache/ms-playwright`). On Linux the system also needs the Chromium runtime libraries — install with `sudo pnpm exec playwright install-deps chromium` if Playwright complains at launch.
+
 ### Build
 
 Produce a build in the `dist/` directory that's suitable to be uploaded to a CDN for very economical serving.

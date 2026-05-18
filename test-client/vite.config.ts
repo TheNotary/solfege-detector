@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Keep Playwright specs (e2e/**) out of vitest's globs.
+    exclude: ['node_modules', 'dist', 'e2e/**', 'playwright-report/**', 'test-results/**'],
   },
 })
