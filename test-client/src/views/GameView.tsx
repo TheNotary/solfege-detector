@@ -405,6 +405,25 @@ export default function GameView(_props: GameViewProps) {
   //     or reduction changed by more than 0.5 dB, or mic/ref by more than
   //     3 dB), OR
   //   - more than 5 s have elapsed since the last log (heartbeat).
+  //
+  // Empirical baselines (measured 2026-05-17 after bd #134 broadband-probe
+  // calibration shipped, on a laptop with built-in speakers + USB mic at
+  // ~1 ft, calibrated delay ≈ 37 ms / 1654 samples):
+  //   - Drone (sustained sine) playing:        reduction ≈ 18–25 dB ✓ working
+  //   - Metronome clicks (transient) playing:  reduction ≈ 0–3 dB   ✗ not canceling
+  //   - No reference signal:                   reduction = 0 dB     (expected)
+  // The click-cancellation gap is a separate problem from bulk-delay
+  // calibration: transients are too short for the NLMS FIR (mu=0.2,
+  // 256 taps) to adapt during the click itself, and the steady-state FIR
+  // learned from drone audio doesn't generalize to the speaker's impulse
+  // response for a wideband click. Likely fixes for a future issue:
+  // longer FIR, frequency-domain block adaptation, or a separate
+  // pre-trained impulse-response convolver fed from known click samples.
+  //
+  // The `regime` annotation appended to each log line names which of these
+  // baselines the current numbers fall into, so a future debug session can
+  // scan the log for the regime that's misbehaving without needing to
+  // re-derive the thresholds from scratch.
   const lastAecLogRef = useRef<{
     line: string;
     delaySamples: number;
@@ -431,10 +450,26 @@ export default function GameView(_props: GameViewProps) {
       Math.abs(last.refEnergyDb - aecStats.refEnergyDb) > 3 ||
       now - last.at > 5000;
     if (!changed) return;
+    // Tag the line with the regime so future grep'ing the log can find
+    // "drone canceling well" vs "click not canceling" frames at a glance.
+    // Thresholds chosen from the empirical baselines in the comment above.
+    let regime: string;
+    if (reductionDb >= 15) {
+      regime = "drone-class ✓"; // sustained tone, FIR has converged
+    } else if (reductionDb >= 5) {
+      regime = "partial";
+    } else if (reductionDb <= -3) {
+      regime = "divergent ✗"; // FIR is adding noise — usually stale delay
+    } else {
+      // Near-zero reduction with active reference. Most often: transient
+      // click that the FIR can't catch in time.
+      regime = "transient/uncanceled";
+    }
     const line =
       `[AEC debug] delay=${aecStats.delaySamples} samples taps=${aecStats.taps} ` +
       `mic=${aecStats.micEnergyDb.toFixed(1)} ref=${aecStats.refEnergyDb.toFixed(1)} ` +
-      `residual=${aecStats.residualDb.toFixed(1)} reduction=${reductionDb.toFixed(1)} dB`;
+      `residual=${aecStats.residualDb.toFixed(1)} reduction=${reductionDb.toFixed(1)} dB ` +
+      `[${regime}]`;
     console.log(line);
     lastAecLogRef.current = {
       line,

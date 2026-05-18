@@ -1,0 +1,31 @@
+---
+id: 135
+title: Metronome clicks not canceled by AEC even though bulk delay is correct (drone cancels 20+ dB)
+type: bug
+status: todo
+priority: 2
+parent: 118
+created_at: 2026-05-18T02:04:10.369902607Z
+updated_at: 2026-05-18T02:04:21.220649657Z
+---
+
+---
+COMMENT
+2026-05-18T02:04:21.220648447Z
+author: witty-falcon
+
+Empirical baseline (calibrated delay ≈ 37 ms / 1654 samples, bd #134 broadband probe):
+
+- Drone (sustained sine):       reduction ≈ 20.9 dB ✓ working
+- Metronome clicks (transient): reduction ≈ 0–3 dB  ✗ not canceling
+- No reference signal:          reduction = 0 dB    (expected)
+
+Sample log line with drone active:
+  [AEC debug] delay=1570 samples taps=256 mic=-32.0 ref=-19.1 residual=-52.9 reduction=20.9 dB
+
+Root cause hypothesis: transients are too short for NLMS to adapt during the click itself (one click is over in ~10 ms; FIR mu=0.2 with 256 taps needs many block iterations to converge), and the steady-state FIR learned from drone audio doesn't generalize to the speaker's wideband impulse response for a click.
+
+Possible directions:
+- Longer FIR / longer impulse-response coverage
+- Frequency-domain block adaptation (PBFDAF / FDAF) for faster transient convergence
+- Pre-trained impulse-response convolver fed from a one-shot click probe at startup, then a smaller adaptive FIR on top for residual
