@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { measureBulkDelaySamples, samplesToMs } from "../lib/delayCalibration";
+import {
+  measureBulkDelaySamples,
+  samplesToMs,
+  type MeasureBulkDelayPeak,
+} from "../lib/delayCalibration";
 
 const TARGET_SAMPLE_RATE = 44_100;
 const CHUNK_INTERVAL_MS = 250;
@@ -106,6 +110,13 @@ export interface CalibrateBulkDelayResult {
   windowSamples: number;
   /** True if the result was confident enough to be pushed to the worklet. */
   applied: boolean;
+  /**
+   * Top-K strongest cross-correlation peaks by |corr|, in descending order.
+   * Surfaces the full "landscape" of candidate delays so debug logs can
+   * show whether the chosen peak was clearly the winner or one of several
+   * similar weak candidates.
+   */
+  topPeaks: MeasureBulkDelayPeak[];
 }
 
 export interface AecStats {
@@ -572,6 +583,7 @@ export function useAudioStream(
         refRmsDb: rmsDb(capture.ref),
         windowSamples: capture.mic.length,
         applied: false,
+        topPeaks: measurement.topPeaks,
       };
 
       if (

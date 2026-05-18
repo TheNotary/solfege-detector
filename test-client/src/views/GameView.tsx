@@ -283,12 +283,15 @@ export default function GameView(_props: GameViewProps) {
           return;
         }
         // Always log the headline result so the user can see at a glance
-        // whether calibration ran and what it concluded.
+        // whether calibration ran and what it concluded. Use a signed peak
+        // value with explicit + / - so anti-correlation (negative peak) is
+        // visible at a glance.
+        const peakSign = result.peakCorrelation >= 0 ? "+" : "";
         console.log(
           `[GameView] AEC bulk-delay calibration: delay=${result.delayMs.toFixed(1)} ms ` +
             `(${result.delaySamples} samples @ ${result.sampleRate} Hz) ` +
             `confidence=${result.confidence.toFixed(1)} ` +
-            `peak=${result.peakCorrelation.toFixed(3)} ` +
+            `peak=${peakSign}${result.peakCorrelation.toFixed(3)} ` +
             `applied=${result.applied}`,
         );
         if (settings.logAecDetails) {
@@ -300,19 +303,55 @@ export default function GameView(_props: GameViewProps) {
               `micRms=${result.micRmsDb.toFixed(1)} dBFS, ` +
               `refRms=${result.refRmsDb.toFixed(1)} dBFS`,
           );
+          // Show the cross-correlation "landscape" — the strongest few
+          // candidate lags by |corr|. If the chosen peak is one of many
+          // similar-magnitude weak peaks, calibration is fitting noise; if
+          // one peak dominates that's a real echo we can lock onto.
+          if (result.topPeaks.length > 0) {
+            const peakLines = result.topPeaks
+              .slice(0, 5)
+              .map((p, i) => {
+                const ms = (p.lagSamples / result.sampleRate) * 1000;
+                const s = p.correlation >= 0 ? "+" : "";
+                return `  #${i + 1}: lag=${p.lagSamples} samples (${ms.toFixed(1)} ms) corr=${s}${p.correlation.toFixed(3)}`;
+              })
+              .join("\n");
+            console.log(`[AEC debug] top cross-correlation peaks:\n${peakLines}`);
+          }
           if (result.refRmsDb < -120) {
             console.warn(
               `[AEC debug] reference channel is silent (refRms=${result.refRmsDb.toFixed(1)} dBFS). ` +
                 `Probe was scheduled but didn't show up — likely useReferenceMix isn't actually ` +
                 `connected to the AEC worklet, or the speaker output is muted.`,
             );
-          } else if (!result.applied && result.peakCorrelation < 0.25) {
+          } else if (!result.applied && Math.abs(result.peakCorrelation) >= 0.25) {
+            // Peak magnitude IS strong, but signed peak is negative —
+            // signals are anti-correlated, which usually means a phase
+            // inversion somewhere in the audio chain.
             console.warn(
-              `[AEC debug] calibration rejected: peakCorrelation=${result.peakCorrelation.toFixed(3)} too weak. ` +
-                `The probe is reaching the AEC's reference channel but the mic doesn't ` +
-                `hear it. Common causes: wearing headphones, speakers muted/very quiet, ` +
-                `mic too far from speakers, or the OS is routing the probe somewhere ` +
-                `other than the speakers the mic can hear. Existing delay setting is kept.`,
+              `[AEC debug] calibration rejected: peak=${peakSign}${result.peakCorrelation.toFixed(3)} is ` +
+                `anti-correlated (negative). Mic and reference look like phase-inverted ` +
+                `copies of each other. Check that the reference signal isn't being summed ` +
+                `with itself inverted somewhere upstream, or that the mic isn't a differential ` +
+                `channel being captured single-ended.`,
+            );
+          } else if (!result.applied) {
+            console.warn(
+              `[AEC debug] calibration rejected: |peak|=${Math.abs(result.peakCorrelation).toFixed(3)} too weak ` +
+                `(threshold 0.25). The probe reached the AEC's reference channel ` +
+                `(refRms=${result.refRmsDb.toFixed(1)} dBFS) but the mic doesn't appear to be ` +
+                `picking up a correlated copy. Existing delay setting is kept.\n` +
+                `If you can see the click in the mic waveform, the click IS being received — ` +
+                `the issue is more subtle than "can't hear it". Likely culprits:\n` +
+                `  - Speaker frequency response is so different from the probe (1500 Hz tone) ` +
+                `that the mic-recorded version barely resembles the reference.\n` +
+                `  - Round-trip delay is > 100 ms (current search range) — try a larger ` +
+                `maxLagSamples.\n` +
+                `  - The mic and reference are at different sample rates / one is being ` +
+                `resampled, smearing the correlation.\n` +
+                `Check the top-peak list above: if one peak stands out (e.g. corr > 0.3 ` +
+                `while the rest are < 0.1) we should consider lowering the threshold or ` +
+                `widening the search range.`,
             );
           }
         }
@@ -328,19 +367,56 @@ export default function GameView(_props: GameViewProps) {
     return () => clearTimeout(timer);
   }, [filteredAnalyserNode, isRecording, calibrateBulkDelay, updateSetting, settings.logAecDetails, audioContext]);
 
-  // When the debug flag is on, surface every AEC stats update (~10/sec).
-  // The worklet reports the *currently applied* bulk delay along with the
-  // mic/ref/residual energies; the reduction is the difference between mic
-  // and residual. If reduction stays near 0 dB while refEnergyDb is high,
-  // the FIR can hear the reference but the alignment is still wrong.
+  // When the debug flag is on, surface AEC stats updates — but only when
+  // something interesting is happening. Without filtering this fires
+  // ~10/sec and floods the console with "delay=0 ref=-200 reduction=0.0 dB"
+  // lines that contain no actionable information.
+  //
+  // We log a line when:
+  //   - the reference channel is active (refEnergyDb > -100), AND
+  //   - the displayed line differs from the last one logged (delay changed,
+  //     or reduction changed by more than 0.5 dB, or mic/ref by more than
+  //     3 dB), OR
+  //   - more than 5 s have elapsed since the last log (heartbeat).
+  const lastAecLogRef = useRef<{
+    line: string;
+    delaySamples: number;
+    reductionDb: number;
+    micEnergyDb: number;
+    refEnergyDb: number;
+    at: number;
+  } | null>(null);
   useEffect(() => {
-    if (!settings.logAecDetails || !aecStats) return;
+    if (!settings.logAecDetails) {
+      lastAecLogRef.current = null;
+      return;
+    }
+    if (!aecStats) return;
+    if (aecStats.refEnergyDb < -100) return; // reference silent — nothing to say
     const reductionDb = aecStats.micEnergyDb - aecStats.residualDb;
-    console.log(
+    const now = performance.now();
+    const last = lastAecLogRef.current;
+    const changed =
+      !last ||
+      last.delaySamples !== aecStats.delaySamples ||
+      Math.abs(last.reductionDb - reductionDb) > 0.5 ||
+      Math.abs(last.micEnergyDb - aecStats.micEnergyDb) > 3 ||
+      Math.abs(last.refEnergyDb - aecStats.refEnergyDb) > 3 ||
+      now - last.at > 5000;
+    if (!changed) return;
+    const line =
       `[AEC debug] delay=${aecStats.delaySamples} samples taps=${aecStats.taps} ` +
-        `mic=${aecStats.micEnergyDb.toFixed(1)} ref=${aecStats.refEnergyDb.toFixed(1)} ` +
-        `residual=${aecStats.residualDb.toFixed(1)} reduction=${reductionDb.toFixed(1)} dB`,
-    );
+      `mic=${aecStats.micEnergyDb.toFixed(1)} ref=${aecStats.refEnergyDb.toFixed(1)} ` +
+      `residual=${aecStats.residualDb.toFixed(1)} reduction=${reductionDb.toFixed(1)} dB`;
+    console.log(line);
+    lastAecLogRef.current = {
+      line,
+      delaySamples: aecStats.delaySamples,
+      reductionDb,
+      micEnergyDb: aecStats.micEnergyDb,
+      refEnergyDb: aecStats.refEnergyDb,
+      at: now,
+    };
   }, [aecStats, settings.logAecDetails]);
 
   // Wrap startNoteCapture to also reset onset detector

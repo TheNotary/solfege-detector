@@ -29,6 +29,18 @@ export interface MeasureBulkDelayOptions {
   minSamples?: number;
   /** Maximum candidate lag in samples (inclusive). Default 4410 (~100 ms @ 44.1 kHz). */
   maxSamples?: number;
+  /**
+   * How many of the strongest peaks (by |corr|) to return in `topPeaks` for
+   * diagnostic purposes. Default 5. Set to 0 to skip.
+   */
+  topPeakCount?: number;
+}
+
+export interface MeasureBulkDelayPeak {
+  /** Candidate lag in samples (mic relative to reference). */
+  lagSamples: number;
+  /** Signed normalized correlation at that lag, in [-1, 1]. */
+  correlation: number;
 }
 
 export interface MeasureBulkDelayResult {
@@ -44,6 +56,15 @@ export interface MeasureBulkDelayResult {
    * As a rule of thumb, accept >= 3, reject < 2.
    */
   confidence: number;
+  /**
+   * The top-K strongest peaks (by |corr|) across the search range, in
+   * descending order of |corr|. Useful for diagnosing why calibration
+   * failed: if all top peaks are weak the mic isn't hearing the reference,
+   * if there's a strong NEGATIVE peak the signals are inverted, and if
+   * there are several similar-magnitude peaks at different lags the
+   * reference is too periodic for unambiguous delay estimation.
+   */
+  topPeaks: MeasureBulkDelayPeak[];
 }
 
 /**
@@ -91,7 +112,7 @@ export function measureBulkDelaySamples(
   let micEnergy = 0;
   for (let i = maxD; i < N; i++) micEnergy += mic[i] * mic[i];
   if (micEnergy <= 0) {
-    return { delaySamples: minD, peakCorrelation: 0, confidence: 0 };
+    return { delaySamples: minD, peakCorrelation: 0, confidence: 0, topPeaks: [] };
   }
 
   const candidateCount = maxD - minD + 1;
@@ -137,10 +158,31 @@ export function measureBulkDelaySamples(
     confidence = 1000;
   }
 
+  // Collect the top-K peaks by |corr| with their lags. Maintained as a
+  // simple sorted insert into a small fixed-size array — cheap relative
+  // to the O(N * candidateCount) main loop.
+  const topPeakCount = Math.max(0, Math.floor(options.topPeakCount ?? 5));
+  const topPeaks: MeasureBulkDelayPeak[] = [];
+  if (topPeakCount > 0) {
+    for (let i = 0; i < candidateCount; i++) {
+      const c = corrs[i];
+      const a = Math.abs(c);
+      if (topPeaks.length < topPeakCount) {
+        topPeaks.push({ lagSamples: minD + i, correlation: c });
+        // Keep descending by |corr|.
+        topPeaks.sort((x, y) => Math.abs(y.correlation) - Math.abs(x.correlation));
+      } else if (a > Math.abs(topPeaks[topPeaks.length - 1].correlation)) {
+        topPeaks[topPeaks.length - 1] = { lagSamples: minD + i, correlation: c };
+        topPeaks.sort((x, y) => Math.abs(y.correlation) - Math.abs(x.correlation));
+      }
+    }
+  }
+
   return {
     delaySamples: bestD,
     peakCorrelation: bestSigned,
     confidence,
+    topPeaks,
   };
 }
 
