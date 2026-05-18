@@ -1,0 +1,26 @@
+---
+id: 126
+title: Headless Playwright smoke tests + fix Maximum-update-depth loop in GameView
+type: task
+status: closed
+priority: 2
+parent: 118
+created_at: 2026-05-18T00:36:29.059682823Z
+updated_at: 2026-05-18T00:36:48.285600497Z
+closed_at: 2026-05-18T00:36:48.285599727Z
+---
+
+---
+COMMENT
+2026-05-18T00:36:41.548010606Z
+author: witty-falcon
+
+Added Playwright (chromium-only, headless) under `test-client/e2e`. New script `pnpm test:e2e`. Tests boot vite on :5174 with fake-mediastream flags and fail on any unallowlisted `console.error` or `pageerror` across /, /play, /calibrate, /config.
+
+Two bugs the harness caught:
+
+1. **TDZ in GameView (Phase-4 regression)** — `useAudioStream({ ... onVolume: filteredAnalyserNode ? undefined : onVolume })` referenced `filteredAnalyserNode` inside the same destructuring statement that declared it. Fixed by adding stable `useCallback` wrappers (`onVolumeRaw`, `onVolumeFilteredCb`, `feedSamplesRaw`, `feedSamplesFiltered`) gated on a `filteredActiveRef` flag.
+
+2. **Maximum update depth in hit-zone effect (pre-existing)** — the per-frame `useEffect` (no dep array, by design) unconditionally called `setHitZoneGeometry({ ... })` with a fresh object each render → React re-rendered → effect re-fired → loop. Fixed by passing a functional updater that bails out when `centerPct`/`halfPct`/`offsetPct` are unchanged.
+
+4/4 smoke tests now pass clean. Unit tests + vite build still pass.
