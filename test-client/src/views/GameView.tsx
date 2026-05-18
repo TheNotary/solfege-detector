@@ -136,7 +136,7 @@ export default function GameView(_props: GameViewProps) {
     [feedSamples],
   );
 
-  const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, aecStats, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture } =
+  const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, aecStats, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture, calibrateBulkDelay } =
     useAudioStream({
       onChunk,
       // Display-side consumers prefer the cleaned (AEC) signal when the
@@ -163,6 +163,58 @@ export default function GameView(_props: GameViewProps) {
       filteredActiveRef.current = false;
     }
   }, [filteredAnalyserNode]);
+
+  // Auto-calibrate the AEC bulk delay once the worklet is wired up and a
+  // probe signal (metronome and/or drone) is available. Without this the
+  // user's `audioLatencyMs` setting (default 0) leaves the actual
+  // speaker→mic delay completely outside the FIR's reach for transients,
+  // so the drone cancels but clicks don't. See bd #127 / #128.
+  //
+  // The measurement is one-shot per recording session: it fires ~700 ms
+  // after the AEC comes online (enough time for several metronome clicks
+  // and the drone fade-in), captures ~190 ms of paired (mic, ref), runs a
+  // cross-correlation in JS, and — if the peak is confident — pushes the
+  // measured delay straight to the worklet via `setLatency`. The persisted
+  // `audioLatencyMs` setting is also updated so subsequent sessions skip
+  // the warmup hiccup.
+  const calibrationDoneRef = useRef(false);
+  useEffect(() => {
+    if (!filteredAnalyserNode || !isRecording) {
+      calibrationDoneRef.current = false;
+      return;
+    }
+    if (calibrationDoneRef.current) return;
+    calibrationDoneRef.current = true;
+
+    const timer = setTimeout(async () => {
+      try {
+        const result = await calibrateBulkDelay({
+          windowSamples: 8192, // ~186 ms @ 44.1 kHz
+          maxLagSamples: 4410, // ~100 ms search range
+          minConfidence: 1.5,
+        });
+        if (!result) {
+          console.warn("[GameView] AEC bulk-delay calibration timed out or returned no data");
+          return;
+        }
+        console.log(
+          `[GameView] AEC bulk-delay calibration: delay=${result.delayMs.toFixed(1)} ms ` +
+            `(${result.delaySamples} samples @ ${result.sampleRate} Hz) ` +
+            `confidence=${result.confidence.toFixed(1)} ` +
+            `peak=${result.peakCorrelation.toFixed(3)} ` +
+            `applied=${result.applied}`,
+        );
+        if (result.applied) {
+          // Persist so future sessions start with a sensible value (also
+          // exposed in the Config view for manual override).
+          updateSetting("audioLatencyMs", Math.round(result.delayMs * 10) / 10);
+        }
+      } catch (err) {
+        console.error("[GameView] AEC bulk-delay calibration threw:", err);
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [filteredAnalyserNode, isRecording, calibrateBulkDelay, updateSetting]);
 
   // Wrap startNoteCapture to also reset onset detector
   const startNoteCapture = useCallback(() => {

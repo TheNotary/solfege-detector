@@ -380,4 +380,72 @@ describe("AecCore — drone vs. click cancellation characterization", () => {
       rmsDb(mic, winStart, winEnd) - rmsDb(out, winStart, winEnd);
     expect(cancellationDb).toBeGreaterThanOrEqual(10);
   });
+
+  // -------------------------------------------------------------------------
+  // Regression for #128: auto-calibration end-to-end.
+  // -------------------------------------------------------------------------
+
+  it("FIX (#128): measureBulkDelaySamples + setDelayMs restores click cancellation when the calibrated delay is unknown", async () => {
+    // Import dynamically so this suite doesn't pick up the lib on its own
+    // file load order (tests in the file can still run in isolation).
+    const { measureBulkDelaySamples, samplesToMs } = await import("./delayCalibration");
+
+    // Pretend the user has audioLatencyMs = 0 (the default). The actual
+    // speaker -> mic delay is 18 ms — the same condition that produced
+    // ~3 dB click cancellation in HYPOTHESIS 1.
+    const totalSec = 5.0;
+    const totalN = Math.round(totalSec * SR);
+    const ref = sine(130.81, totalSec, 0.3); // drone
+
+    // Two probe clicks during the calibration window (t=0.1 s and 0.3 s)
+    // so the cross-correlator has a sharp transient to lock onto, then a
+    // measurement click at t=4 s used to score cancellation post-fix.
+    addAt(ref, click(1500, 0.5), Math.round(0.1 * SR));
+    addAt(ref, click(1500, 0.5), Math.round(0.3 * SR));
+    addAt(ref, click(1500, 0.5), Math.round(4.0 * SR));
+
+    const mic = leakIdeal(ref);
+
+    // Step 1: capture the first ~190 ms of (mic, ref) — exactly what the
+    // worklet's captureWindow does in production.
+    const windowSamples = 8192;
+    const micWin = mic.slice(0, windowSamples);
+    const refWin = ref.slice(0, windowSamples);
+
+    // Step 2: cross-correlate to recover the delay.
+    const measurement = measureBulkDelaySamples(micWin, refWin, {
+      maxSamples: 4410,
+    });
+    // eslint-disable-next-line no-console
+    console.log(
+      `[diag FIX] measurement delay=${measurement.delaySamples} ` +
+        `confidence=${measurement.confidence.toFixed(2)} ` +
+        `peakCorr=${measurement.peakCorrelation.toFixed(3)}`,
+    );
+    // The drone is periodic so confidence (peak/median) is modest; what
+    // matters is that the recovered delay is close to the true one.
+    expect(measurement.confidence).toBeGreaterThan(1.5);
+    const recoveredMs = samplesToMs(measurement.delaySamples, SR);
+    expect(Math.abs(recoveredMs - delayMs)).toBeLessThan(0.5);
+
+    // Step 3: configure the AEC with the recovered delay and process the
+    // full track. Click cancellation should be deep again.
+    const aec = new AecCore();
+    aec.setDelayMs(recoveredMs, SR);
+    const out = new Float32Array(mic.length);
+    aec.processBlock(mic, ref, out);
+
+    const clickAt = Math.round(4.0 * SR) + delaySamples;
+    const clickCancelDb =
+      rmsDb(mic, clickAt, clickAt + Math.round(0.02 * SR)) -
+      rmsDb(out, clickAt, clickAt + Math.round(0.02 * SR));
+
+    // eslint-disable-next-line no-console
+    console.log(
+      `[diag FIX] recoveredMs=${recoveredMs.toFixed(2)} ` +
+        `confidence=${measurement.confidence.toFixed(1)} ` +
+        `clickCancelDb=${clickCancelDb.toFixed(1)}`,
+    );
+    expect(clickCancelDb).toBeGreaterThanOrEqual(15);
+  });
 });

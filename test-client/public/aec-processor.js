@@ -16,10 +16,15 @@
  *   { type: "setTaps", n: number }         // change FIR length; resets weights
  *   { type: "reset" }                      // zero weights + energy
  *   { type: "stats" }                      // request immediate stats post
+ *   { type: "captureWindow", samples: number }
+ *                                         // record the next N paired
+ *                                         // (mic, ref) samples and post
+ *                                         // them back in a single message
  *
  * Messages posted from the worklet:
  *   { type: "frame", samples: Float32Array }   // cleaned audio for display-side consumers
  *   { type: "stats", delaySamples, taps, refEnergyDb, micEnergyDb, residualDb }
+ *   { type: "captureWindow", mic: Float32Array, ref: Float32Array, sampleRate: number }
  */
 
 const DEFAULT_TAPS = 256;
@@ -70,6 +75,14 @@ class AecProcessor extends AudioWorkletProcessor {
     this.tapPos = 0;
     this.statsCounter = 0;
 
+    // captureWindow state: when `captureRemaining > 0`, every processed
+    // sample is also copied into `captureMic`/`captureRef` and the result
+    // is posted to the main thread when the buffer fills up.
+    this.captureMic = null;
+    this.captureRef = null;
+    this.capturePos = 0;
+    this.captureRemaining = 0;
+
     this.port.onmessage = (ev) => {
       const m = ev.data;
       if (!m || typeof m !== "object") return;
@@ -106,6 +119,16 @@ class AecProcessor extends AudioWorkletProcessor {
         case "stats":
           this.postStats();
           break;
+        case "captureWindow": {
+          // Cap at ~1 s @ 96 kHz so a malformed message can't allocate
+          // unbounded memory inside the audio thread.
+          const n = clamp(m.samples | 0, 16, 96000);
+          this.captureMic = new Float32Array(n);
+          this.captureRef = new Float32Array(n);
+          this.capturePos = 0;
+          this.captureRemaining = n;
+          break;
+        }
       }
     };
   }
@@ -131,6 +154,35 @@ class AecProcessor extends AudioWorkletProcessor {
     }
   }
 
+  /**
+   * Append a paired (mic, ref) sample to the active capture window, if any.
+   * Posts the window back to the main thread and arms for the next request
+   * the moment it fills up.
+   */
+  recordCapture(micS, refS) {
+    if (this.captureRemaining <= 0) return;
+    this.captureMic[this.capturePos] = micS;
+    this.captureRef[this.capturePos] = refS;
+    this.capturePos++;
+    this.captureRemaining--;
+    if (this.captureRemaining <= 0) {
+      const micOut = this.captureMic;
+      const refOut = this.captureRef;
+      this.captureMic = null;
+      this.captureRef = null;
+      this.capturePos = 0;
+      this.port.postMessage(
+        {
+          type: "captureWindow",
+          mic: micOut,
+          ref: refOut,
+          sampleRate,
+        },
+        [micOut.buffer, refOut.buffer],
+      );
+    }
+  }
+
   process(inputs, outputs) {
     const output = outputs[0];
     if (!output || output.length === 0) return true;
@@ -153,12 +205,14 @@ class AecProcessor extends AudioWorkletProcessor {
     // relative to wall-clock when re-enabled.
     if (!this.enabled || !refCh) {
       for (let i = 0; i < n; i++) {
-        this.ring[this.writePos] = refCh ? refCh[i] : 0;
+        const refS = refCh ? refCh[i] : 0;
+        this.ring[this.writePos] = refS;
         this.writePos = this.writePos + 1;
         if (this.writePos >= this.ringSize) this.writePos = 0;
         const s = micCh[i];
         outCh[i] = s;
         this.pushTap(s);
+        this.recordCapture(s, refS);
       }
       return true;
     }
@@ -194,6 +248,7 @@ class AecProcessor extends AudioWorkletProcessor {
       const e = mic - yHat;
       outCh[i] = e;
       this.pushTap(e);
+      this.recordCapture(mic, refCh[i]);
 
       this.micEnergy += alpha * (mic * mic - this.micEnergy);
       this.refEnergy += alpha * (refCh[i] * refCh[i] - this.refEnergy);

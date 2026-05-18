@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { measureBulkDelaySamples, samplesToMs } from "../lib/delayCalibration";
 
 const TARGET_SAMPLE_RATE = 44_100;
 const CHUNK_INTERVAL_MS = 250;
@@ -56,6 +57,41 @@ interface UseAudioStreamReturn {
   aecStats: AecStats | null;
   startNoteCapture: () => void;
   stopNoteCapture: () => ArrayBuffer | null;
+  /**
+   * Record a short window of paired (mic, reference) samples from the AEC
+   * worklet, cross-correlate them, and — on a confident pick — immediately
+   * push the measured bulk delay to the worklet via `setLatency`.
+   *
+   * Returns `null` if the AEC worklet isn't running, the request times out,
+   * or the cross-correlation peak is too ambiguous to trust.
+   *
+   * The caller is responsible for arranging that a recognizable probe
+   * signal (e.g. a metronome click or the running drone) is playing during
+   * the capture window. Default window is ~93 ms @ 44.1 kHz which fits a
+   * single click comfortably; max search lag defaults to ~100 ms.
+   */
+  calibrateBulkDelay: (options?: CalibrateBulkDelayOptions) => Promise<CalibrateBulkDelayResult | null>;
+}
+
+export interface CalibrateBulkDelayOptions {
+  /** Capture window size in samples. Default 4096. */
+  windowSamples?: number;
+  /** Maximum candidate lag in samples. Default 4410 (~100 ms @ 44.1 kHz). */
+  maxLagSamples?: number;
+  /** Minimum confidence (peak / median |corr|) to accept. Default 5. */
+  minConfidence?: number;
+  /** Timeout in ms before giving up on the capture round-trip. Default 1500. */
+  timeoutMs?: number;
+}
+
+export interface CalibrateBulkDelayResult {
+  delaySamples: number;
+  delayMs: number;
+  confidence: number;
+  peakCorrelation: number;
+  sampleRate: number;
+  /** True if the result was confident enough to be pushed to the worklet. */
+  applied: boolean;
 }
 
 export interface AecStats {
@@ -111,6 +147,15 @@ export function useAudioStream(
   onCaptureChunkFilteredRef.current = options.onCaptureChunkFiltered;
   const audioInputLatencyMsRef = useRef(options.audioInputLatencyMs);
   audioInputLatencyMsRef.current = options.audioInputLatencyMs;
+
+  /**
+   * Resolves the next inbound `captureWindow` from the AEC worklet to the
+   * waiting `calibrateBulkDelay` caller. Only one calibration may be in
+   * flight at a time — the second caller resolves to `null`.
+   */
+  const pendingCaptureResolverRef = useRef<
+    ((value: { mic: Float32Array; ref: Float32Array; sampleRate: number } | null) => void) | null
+  >(null);
 
   const referenceNode = options.referenceNode ?? null;
   const aecEnabled = options.aecEnabled !== false;
@@ -391,6 +436,16 @@ export function useAudioStream(
             micEnergyDb: msg.micEnergyDb,
             residualDb: msg.residualDb,
           });
+        } else if (msg.type === "captureWindow") {
+          const resolver = pendingCaptureResolverRef.current;
+          pendingCaptureResolverRef.current = null;
+          if (resolver) {
+            resolver({
+              mic: msg.mic as Float32Array,
+              ref: msg.ref as Float32Array,
+              sampleRate: msg.sampleRate as number,
+            });
+          }
         }
       };
 
@@ -415,6 +470,94 @@ export function useAudioStream(
     };
   }, [audioContext, referenceNode, aecEnabled]);
 
+  const calibrateBulkDelay = useCallback(
+    async (
+      opts: CalibrateBulkDelayOptions = {},
+    ): Promise<CalibrateBulkDelayResult | null> => {
+      const aecNode = aecNodeRef.current;
+      if (!aecNode) return null;
+      // Only one calibration in flight; subsequent calls bail until the
+      // pending capture resolves or times out.
+      if (pendingCaptureResolverRef.current) return null;
+
+      const windowSamples = Math.max(512, Math.floor(opts.windowSamples ?? 4096));
+      const maxLagSamples = Math.max(64, Math.floor(opts.maxLagSamples ?? 4410));
+      const minConfidence = opts.minConfidence ?? 5;
+      const timeoutMs = opts.timeoutMs ?? 1500;
+
+      const capture = await new Promise<{
+        mic: Float32Array;
+        ref: Float32Array;
+        sampleRate: number;
+      } | null>((resolve) => {
+        pendingCaptureResolverRef.current = resolve;
+        const timer = setTimeout(() => {
+          if (pendingCaptureResolverRef.current === resolve) {
+            pendingCaptureResolverRef.current = null;
+            resolve(null);
+          }
+        }, timeoutMs);
+        // Side-effect: cancel the timer when the resolver fires for any
+        // reason (success or stale resolve). Wrap the resolver so we can
+        // clear before completing.
+        const wrapped = (
+          v: { mic: Float32Array; ref: Float32Array; sampleRate: number } | null,
+        ) => {
+          clearTimeout(timer);
+          resolve(v);
+        };
+        pendingCaptureResolverRef.current = wrapped;
+        try {
+          aecNode.port.postMessage({ type: "captureWindow", samples: windowSamples });
+        } catch (err) {
+          console.error("[useAudioStream] calibrateBulkDelay postMessage failed:", err);
+          if (pendingCaptureResolverRef.current === wrapped) {
+            pendingCaptureResolverRef.current = null;
+          }
+          clearTimeout(timer);
+          resolve(null);
+        }
+      });
+
+      if (!capture) return null;
+
+      // Clamp maxLag so the cross-correlator can't refuse a too-short window.
+      const safeMaxLag = Math.min(maxLagSamples, capture.mic.length - 64);
+      if (safeMaxLag < 32) return null;
+
+      let measurement;
+      try {
+        measurement = measureBulkDelaySamples(capture.mic, capture.ref, {
+          maxSamples: safeMaxLag,
+        });
+      } catch (err) {
+        console.error("[useAudioStream] cross-correlation failed:", err);
+        return null;
+      }
+
+      const result: CalibrateBulkDelayResult = {
+        delaySamples: measurement.delaySamples,
+        delayMs: samplesToMs(measurement.delaySamples, capture.sampleRate),
+        confidence: measurement.confidence,
+        peakCorrelation: measurement.peakCorrelation,
+        sampleRate: capture.sampleRate,
+        applied: false,
+      };
+
+      if (measurement.confidence >= minConfidence) {
+        try {
+          aecNode.port.postMessage({ type: "setLatency", ms: result.delayMs });
+          result.applied = true;
+        } catch (err) {
+          console.error("[useAudioStream] setLatency postMessage failed:", err);
+        }
+      }
+
+      return result;
+    },
+    [],
+  );
+
   return {
     startRecording,
     stopRecording,
@@ -426,5 +569,6 @@ export function useAudioStream(
     aecStats,
     startNoteCapture,
     stopNoteCapture,
+    calibrateBulkDelay,
   };
 }
