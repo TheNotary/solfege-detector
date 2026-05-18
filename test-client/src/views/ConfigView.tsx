@@ -128,6 +128,23 @@ export default function ConfigView() {
           </small>
         </div>
 
+        {/* Vocal-range bandpass toggle */}
+        <div className="config-field">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={draft.vocalBandpassEnabled}
+              onChange={(e) => set("vocalBandpassEnabled", e.target.checked)}
+            />
+            Vocal-range filter (80–1100 Hz)
+          </label>
+          <small className="field-help">
+            Blocks thunder/rumble &amp; high-frequency noise from triggering
+            confetti, onset flashes, or jiggling the waveform. Affects
+            display only; training audio sent to the backend stays raw.
+          </small>
+        </div>
+
         {/* Click-mask toggle */}
         <div className="config-field">
           <label className="checkbox-row">

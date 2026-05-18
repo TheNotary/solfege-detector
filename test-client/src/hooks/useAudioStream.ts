@@ -4,6 +4,10 @@ import {
   samplesToMs,
   type MeasureBulkDelayPeak,
 } from "../lib/delayCalibration";
+import {
+  connectVocalBandpassNodes,
+  createVocalBandpassFilter,
+} from "../lib/vocalBandpass";
 
 const TARGET_SAMPLE_RATE = 44_100;
 const CHUNK_INTERVAL_MS = 250;
@@ -38,6 +42,17 @@ interface UseAudioStreamOptions {
    * Use this for display-side onset detection.
    */
   onCaptureChunkFiltered?: (samples: Float32Array) => void;
+  /**
+   * When `true` (default), the four display-side audio paths — raw +
+   * AEC-filtered analyser nodes, and the raw + AEC-filtered
+   * onCaptureChunk* / onVolume* callbacks — are routed through a 4th-order
+   * 80–1100 Hz vocal-range bandpass so sub-bass rumble (e.g. thunder) and
+   * high-frequency noise can't trip onset detection or jiggle the
+   * waveform. The backend training audio (`onChunk` and the buffer
+   * returned by `stopNoteCapture`) is intentionally NOT filtered either
+   * way — the acoustic model is trained on the full spectrum.
+   */
+  vocalBandpassEnabled?: boolean;
 }
 
 interface UseAudioStreamReturn {
@@ -186,6 +201,24 @@ export function useAudioStream(
   audioInputLatencyMsRef.current = options.audioInputLatencyMs;
 
   /**
+   * Live mirror of `vocalBandpassEnabled` so the per-frame processor
+   * callback (and the AEC postMessage handler) can branch on the current
+   * setting without rebinding on every render. Default `true`.
+   */
+  const vocalBandpassEnabledRef = useRef(options.vocalBandpassEnabled !== false);
+  vocalBandpassEnabledRef.current = options.vocalBandpassEnabled !== false;
+
+  /**
+   * Per-recording-session stateful JS biquad used to filter the raw mic
+   * samples handed to display-side consumers (`onCaptureChunk` /
+   * `onVolume`). Always primed during recording so toggling the bandpass
+   * back on doesn't expose a stale-state transient. The accumulator that
+   * feeds the backend WebSocket and the per-note capture buffer keep
+   * receiving the unfiltered `copied` array.
+   */
+  const displayFilterRef = useRef<((s: Float32Array) => Float32Array) | null>(null);
+
+  /**
    * Resolves the next inbound `captureWindow` from the AEC worklet to the
    * waiting `calibrateBulkDelay` caller. Only one calibration may be in
    * flight at a time — the second caller resolves to `null`.
@@ -196,6 +229,7 @@ export function useAudioStream(
 
   const referenceNode = options.referenceNode ?? null;
   const aecEnabled = options.aecEnabled !== false;
+  const vocalBandpassEnabled = options.vocalBandpassEnabled !== false;
 
   // Push latency updates to a live AEC node so calibration changes re-align
   // the worklet's delay ring without forcing a full rebuild.
@@ -227,6 +261,7 @@ export function useAudioStream(
     processorRef.current = null;
     sourceRef.current = null;
     analyserRef.current = null;
+    displayFilterRef.current = null;
 
     if (audioContextRef.current) {
       audioContextRef.current.close();
@@ -264,11 +299,19 @@ export function useAudioStream(
     const source = ctx.createMediaStreamSource(stream);
     sourceRef.current = source;
 
-    // Shared AnalyserNode (fftSize=4096 for reliable low-frequency pitch detection)
+    // Shared AnalyserNode (fftSize=4096 for reliable low-frequency pitch detection).
+    // The `source -> analyser` edge itself is built by the
+    // `vocalBandpassEnabled` effect below (so toggling the filter live
+    // can rewire that edge without restarting recording).
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 4096;
     analyserRef.current = analyser;
-    source.connect(analyser);
+
+    // Allocate the display-side filter once per recording session. We
+    // always pump samples through it so the biquad state stays primed; the
+    // per-frame branch decides whether the filtered or raw copy is handed
+    // to the display callbacks.
+    displayFilterRef.current = createVocalBandpassFilter(ctx.sampleRate);
 
     // ScriptProcessorNode for raw sample access (widely supported)
     const bufferSize = 4096;
@@ -277,23 +320,36 @@ export function useAudioStream(
 
     processor.onaudioprocess = (e: AudioProcessingEvent) => {
       const input = e.inputBuffer.getChannelData(0);
-      // Copy since the buffer is reused
+      // Copy since the buffer is reused. `copied` is the raw mic signal
+      // and is what the backend (WebSocket chunks + per-note capture for
+      // training) sees — it MUST NOT be filtered.
       const copied = new Float32Array(input);
       accumulatorRef.current.push(copied);
 
-      // Collect into per-note capture buffer if active
+      // Filtered copy for display-side consumers. Always computed so the
+      // biquad keeps a hot state; cheap relative to a 4096-sample frame.
+      const filtered = displayFilterRef.current
+        ? displayFilterRef.current(copied)
+        : copied;
+      const displaySamples = vocalBandpassEnabledRef.current ? filtered : copied;
+
+      // Collect into per-note capture buffer if active. The capture buffer
+      // is the per-note training payload returned by `stopNoteCapture` —
+      // it stays raw too. Only the `onCaptureChunk` notification (which
+      // drives the onset detector) sees the filtered samples.
       if (noteCaptureActiveRef.current) {
         noteCaptureBufferRef.current.push(copied);
-        onCaptureChunkRef.current?.(copied);
+        onCaptureChunkRef.current?.(displaySamples);
       }
 
-      // Compute RMS for volume detection
+      // Compute RMS for volume detection from the display copy so rumble
+      // doesn't pin the volume meter open / fire confetti.
       if (onVolumeRef.current) {
         let sum = 0;
-        for (let i = 0; i < input.length; i++) {
-          sum += input[i] * input[i];
+        for (let i = 0; i < displaySamples.length; i++) {
+          sum += displaySamples[i] * displaySamples[i];
         }
-        onVolumeRef.current(Math.sqrt(sum / input.length));
+        onVolumeRef.current(Math.sqrt(sum / displaySamples.length));
       }
     };
 
@@ -341,6 +397,37 @@ export function useAudioStream(
     noteCaptureBufferRef.current = [];
     noteCaptureActiveRef.current = true;
   }, []);
+
+  /**
+   * Wire (and re-wire) the `source -> analyser` edge whenever the audio
+   * context or the vocal-bandpass toggle changes. When enabled, splices a
+   * 4th-order 80\u20131100 Hz bandpass (two HP + two LP biquads) between
+   * source and analyser so the waveform / displacement consumers see the
+   * vocal-range signal. When disabled, restores a direct connection. The
+   * raw mic path into the processor is unaffected (the backend still gets
+   * full-spectrum audio).
+   */
+  useEffect(() => {
+    const ctx = audioContext;
+    const source = sourceRef.current;
+    const analyser = analyserRef.current;
+    if (!ctx || !source || !analyser) return;
+
+    let cleanup: (() => void) | null = null;
+    if (vocalBandpassEnabled) {
+      const handle = connectVocalBandpassNodes(ctx, source, analyser);
+      cleanup = handle.disconnect;
+    } else {
+      try { source.connect(analyser); } catch { /* already connected */ }
+      cleanup = () => {
+        try { source.disconnect(analyser); } catch { /* ignore */ }
+      };
+    }
+
+    return () => {
+      cleanup?.();
+    };
+  }, [audioContext, vocalBandpassEnabled]);
 
   const stopNoteCapture = useCallback((): ArrayBuffer | null => {
     if (!noteCaptureActiveRef.current) return null;
@@ -405,6 +492,7 @@ export function useAudioStream(
     let cancelled = false;
     let aecNode: AudioWorkletNode | null = null;
     let filtered: AnalyserNode | null = null;
+    let bandpassHandle: { disconnect: () => void } | null = null;
 
     (async () => {
       try {
@@ -441,7 +529,22 @@ export function useAudioStream(
 
       filtered = ctx.createAnalyser();
       filtered.fftSize = FILTERED_ANALYSER_FFT;
-      aecNode.connect(filtered);
+      // When the vocal-range bandpass is on, splice it between the AEC
+      // output and the analyser so the filtered waveform display only
+      // sees vocal-range content. When off, connect directly. Captured
+      // here so the cleanup below can tear the chain down.
+      if (vocalBandpassEnabled) {
+        bandpassHandle = connectVocalBandpassNodes(ctx, aecNode, filtered);
+      } else {
+        aecNode.connect(filtered);
+      }
+
+      // Per-effect-lifetime JS biquad used to filter the worklet's frame
+      // postMessages before they reach `onCaptureChunkFiltered` /
+      // `onVolumeFiltered`. Bypassed when the toggle is off.
+      const frameFilter = vocalBandpassEnabled
+        ? createVocalBandpassFilter(ctx.sampleRate)
+        : null;
 
       // Seed the worklet's delay line from the latest calibration value.
       const latencyMs = audioInputLatencyMsRef.current;
@@ -455,15 +558,16 @@ export function useAudioStream(
         if (msg.type === "frame") {
           const samples = msg.samples as Float32Array;
           if (!samples || samples.length === 0) return;
+          const display = frameFilter ? frameFilter(samples) : samples;
           if (onCaptureChunkFilteredRef.current) {
-            onCaptureChunkFilteredRef.current(samples);
+            onCaptureChunkFilteredRef.current(display);
           }
           if (onVolumeFilteredRef.current) {
             let sumSq = 0;
-            for (let i = 0; i < samples.length; i++) {
-              sumSq += samples[i] * samples[i];
+            for (let i = 0; i < display.length; i++) {
+              sumSq += display[i] * display[i];
             }
-            onVolumeFilteredRef.current(Math.sqrt(sumSq / samples.length));
+            onVolumeFilteredRef.current(Math.sqrt(sumSq / display.length));
           }
         } else if (msg.type === "stats") {
           setAecStats({
@@ -498,6 +602,9 @@ export function useAudioStream(
         try { aecNode.disconnect(); } catch { /* ignore */ }
         aecNode.port.onmessage = null;
       }
+      if (bandpassHandle) {
+        bandpassHandle.disconnect();
+      }
       if (filtered) {
         try { filtered.disconnect(); } catch { /* ignore */ }
       }
@@ -505,7 +612,7 @@ export function useAudioStream(
       setFilteredAnalyserNode(null);
       setAecStats(null);
     };
-  }, [audioContext, referenceNode, aecEnabled]);
+  }, [audioContext, referenceNode, aecEnabled, vocalBandpassEnabled]);
 
   const calibrateBulkDelay = useCallback(
     async (

@@ -212,6 +212,7 @@ export default function GameView(_props: GameViewProps) {
       trimCapture,
       referenceNode,
       aecEnabled: settings.feedbackCancellation,
+      vocalBandpassEnabled: settings.vocalBandpassEnabled,
       audioInputLatencyMs: settings.audioLatencyMs,
     });
 

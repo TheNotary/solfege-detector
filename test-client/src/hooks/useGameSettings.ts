@@ -20,6 +20,16 @@ export interface GameSettings {
    */
   feedbackCancellation: boolean;
   /**
+   * When true, the four display-side audio paths (raw + AEC-filtered
+   * analyser nodes, plus the raw + AEC-filtered onset/volume callbacks)
+   * are routed through a 4th-order 80–1100 Hz vocal-range bandpass so
+   * sub-bass rumble (e.g. a passing thunderstorm) and high-frequency
+   * noise can't trip onset detection, fire confetti, or jiggle the
+   * waveform. The captured training audio sent to the backend is
+   * unaffected. Defaults to true.
+   */
+  vocalBandpassEnabled: boolean;
+  /**
    * When true, suppress hit/onset detection and the on-screen waveform
    * during predicted mic-arrival windows of each metronome click. Sidesteps
    * the AEC for click leakage so spurious confetti / onset flashes don't
@@ -50,6 +60,7 @@ const DEFAULTS: GameSettings = {
   metronomeVolume: 0.25,
   metronomeOffsetMs: 0,
   feedbackCancellation: true,
+  vocalBandpassEnabled: true,
   clickMaskEnabled: true,
   logAecDetails: false,
 };
