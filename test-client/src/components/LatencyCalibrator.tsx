@@ -32,6 +32,20 @@ export default function LatencyCalibrator() {
   // websocket while the user is just calibrating from the config page.
   const onChunkNoop = useCallback(() => {}, []);
 
+  // We need both an `AudioContext` (created by `useAudioStream` after
+  // `startRecording()`) AND a `GainNode` from `useReferenceMix` that lives
+  // on that same context, before the AEC worklet effect inside
+  // `useAudioStream` will wire itself up. The two hooks have a circular
+  // data dependency, so we break the cycle via a state mirror of the
+  // context. First render: ctxForMix=null → refMix=null →
+  // `useAudioStream` runs with referenceNode=null and no AEC. The click
+  // calls startRecording → ctx materialises → the effect below copies it
+  // into ctxForMix → next render: refMix is built → next render:
+  // `useAudioStream` sees a real referenceNode and the AEC effect finally
+  // runs.
+  const [ctxForMix, setCtxForMix] = useState<AudioContext | null>(null);
+  const refMix = useReferenceMix(ctxForMix);
+
   const {
     startRecording,
     stopRecording,
@@ -41,45 +55,32 @@ export default function LatencyCalibrator() {
   } = useAudioStream({
     onChunk: onChunkNoop,
     aecEnabled: true,
-    referenceNode: null, // wired below via the live state from useReferenceMix
+    referenceNode: refMix,
     audioInputLatencyMs: settings.audioLatencyMs,
   });
 
-  const refMix = useReferenceMix(audioContext);
-
-  // useAudioStream snapshots `referenceNode` at construction; rewire it
-  // imperatively once the reference mix becomes available so the AEC
-  // worklet actually sees the probe signal.
-  const refMixRef = useRef<AudioNode | null>(null);
   useEffect(() => {
-    refMixRef.current = refMix;
-  }, [refMix]);
+    setCtxForMix(audioContext);
+  }, [audioContext]);
 
   // When calibration is "running", as soon as the worklet is wired up
   // (filteredAnalyserNode appears) emit the probe and capture.
   const inFlightRef = useRef(false);
   useEffect(() => {
     if (!active) return;
-    if (!filteredAnalyserNode || !audioContext) return;
+    if (!filteredAnalyserNode || !audioContext || !refMix) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
     const ctx = audioContext;
-    const mix = refMixRef.current;
+    const mix = refMix;
 
-    // Allow the worklet ~150 ms to settle (it needs at least one frame of
+    // Allow the worklet ~200 ms to settle (it needs at least one frame of
     // reference data through the keep-alive ConstantSource before it will
     // emit anything meaningful) before we start playing the probe.
     const timer = setTimeout(async () => {
       try {
         setStatus({ kind: "probing" });
-        if (!mix) {
-          setStatus({
-            kind: "error",
-            message: "Reference mix not ready; try again.",
-          });
-          return;
-        }
         emitCalibrationProbe(ctx, mix);
         const result = await calibrateBulkDelay({
           windowSamples: 16384,
@@ -136,6 +137,7 @@ export default function LatencyCalibrator() {
     active,
     filteredAnalyserNode,
     audioContext,
+    refMix,
     calibrateBulkDelay,
     stopRecording,
     updateSetting,
@@ -194,7 +196,9 @@ function StatusLine({ status }: { status: Status }) {
       return null;
     case "starting":
       return (
-        <small className="field-help">Requesting microphone access…</small>
+        <small className="field-help">
+          Acquiring mic + spinning up audio worklet…
+        </small>
       );
     case "probing":
       return (
