@@ -127,6 +127,23 @@ export default function ConfigView() {
           </small>
         </div>
 
+        {/* AEC debug logging toggle */}
+        <div className="config-field">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={draft.logAecDetails}
+              onChange={(e) => set("logAecDetails", e.target.checked)}
+            />
+            Log AEC Cancelation Details
+          </label>
+          <small className="field-help">
+            Prints calibration result, applied delay, and per-update mic vs.
+            residual energy (reduction in dB) to the browser console. Use
+            this to diagnose why clicks aren&apos;t cancelling.
+          </small>
+        </div>
+
         {/* Actions */}
         <div className="config-actions">
           <button className="save-btn" onClick={handleSave}>

@@ -19,6 +19,12 @@ export interface GameSettings {
    * either way. Defaults to true.
    */
   feedbackCancellation: boolean;
+  /**
+   * When true, emit verbose AEC diagnostics to the browser console
+   * (calibration result, per-stats reduction in dB, applied delay). Off
+   * by default to avoid noise during normal play.
+   */
+  logAecDetails: boolean;
 }
 
 const STORAGE_KEY = "solfege-settings";
@@ -36,6 +42,7 @@ const DEFAULTS: GameSettings = {
   metronomeVolume: 0.25,
   metronomeOffsetMs: 0,
   feedbackCancellation: true,
+  logAecDetails: false,
 };
 
 // ── Singleton store so every hook instance shares the same snapshot ──

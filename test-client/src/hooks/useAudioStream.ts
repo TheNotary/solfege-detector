@@ -90,6 +90,12 @@ export interface CalibrateBulkDelayResult {
   confidence: number;
   peakCorrelation: number;
   sampleRate: number;
+  /** RMS (dB FS) of the captured mic window. Useful for debugging "is the mic alive?" */
+  micRmsDb: number;
+  /** RMS (dB FS) of the captured reference window. Useful for debugging "is the ref signal reaching the AEC?" */
+  refRmsDb: number;
+  /** Length (in samples) of the capture window the measurement ran over. */
+  windowSamples: number;
   /** True if the result was confident enough to be pushed to the worklet. */
   applied: boolean;
 }
@@ -112,6 +118,18 @@ function float32ToInt16(float32: Float32Array): ArrayBuffer {
     int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
   }
   return int16.buffer;
+}
+
+/**
+ * Root-mean-square of `x` in dB FS. Returns -Infinity-safe -200 for silence.
+ */
+function rmsDb(x: Float32Array): number {
+  if (x.length === 0) return -200;
+  let sumSq = 0;
+  for (let i = 0; i < x.length; i++) sumSq += x[i] * x[i];
+  const ms = sumSq / x.length;
+  if (ms <= 1e-20) return -200;
+  return 10 * Math.log10(ms);
 }
 
 export function useAudioStream(
@@ -541,6 +559,9 @@ export function useAudioStream(
         confidence: measurement.confidence,
         peakCorrelation: measurement.peakCorrelation,
         sampleRate: capture.sampleRate,
+        micRmsDb: rmsDb(capture.mic),
+        refRmsDb: rmsDb(capture.ref),
+        windowSamples: capture.mic.length,
         applied: false,
       };
 

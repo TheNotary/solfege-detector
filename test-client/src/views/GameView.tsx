@@ -197,6 +197,8 @@ export default function GameView(_props: GameViewProps) {
           console.warn("[GameView] AEC bulk-delay calibration timed out or returned no data");
           return;
         }
+        // Always log the headline result so the user can see at a glance
+        // whether calibration ran and what it concluded.
         console.log(
           `[GameView] AEC bulk-delay calibration: delay=${result.delayMs.toFixed(1)} ms ` +
             `(${result.delaySamples} samples @ ${result.sampleRate} Hz) ` +
@@ -204,6 +206,16 @@ export default function GameView(_props: GameViewProps) {
             `peak=${result.peakCorrelation.toFixed(3)} ` +
             `applied=${result.applied}`,
         );
+        if (settings.logAecDetails) {
+          // Extra capture-time diagnostics: if `refRmsDb` is at the
+          // silence floor (~ -200) the reference signal isn't reaching
+          // the worklet at all and no amount of FIR adaptation will help.
+          console.log(
+            `[AEC debug] capture window: ${result.windowSamples} samples, ` +
+              `micRms=${result.micRmsDb.toFixed(1)} dBFS, ` +
+              `refRms=${result.refRmsDb.toFixed(1)} dBFS`,
+          );
+        }
         if (result.applied) {
           // Persist so future sessions start with a sensible value (also
           // exposed in the Config view for manual override).
@@ -214,7 +226,22 @@ export default function GameView(_props: GameViewProps) {
       }
     }, 700);
     return () => clearTimeout(timer);
-  }, [filteredAnalyserNode, isRecording, calibrateBulkDelay, updateSetting]);
+  }, [filteredAnalyserNode, isRecording, calibrateBulkDelay, updateSetting, settings.logAecDetails]);
+
+  // When the debug flag is on, surface every AEC stats update (~10/sec).
+  // The worklet reports the *currently applied* bulk delay along with the
+  // mic/ref/residual energies; the reduction is the difference between mic
+  // and residual. If reduction stays near 0 dB while refEnergyDb is high,
+  // the FIR can hear the reference but the alignment is still wrong.
+  useEffect(() => {
+    if (!settings.logAecDetails || !aecStats) return;
+    const reductionDb = aecStats.micEnergyDb - aecStats.residualDb;
+    console.log(
+      `[AEC debug] delay=${aecStats.delaySamples} samples taps=${aecStats.taps} ` +
+        `mic=${aecStats.micEnergyDb.toFixed(1)} ref=${aecStats.refEnergyDb.toFixed(1)} ` +
+        `residual=${aecStats.residualDb.toFixed(1)} reduction=${reductionDb.toFixed(1)} dB`,
+    );
+  }, [aecStats, settings.logAecDetails]);
 
   // Wrap startNoteCapture to also reset onset detector
   const startNoteCapture = useCallback(() => {
