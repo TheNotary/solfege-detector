@@ -2,12 +2,19 @@
 id: 131
 title: Calibration emits its own probe clicks so it doesn't depend on drone/metronome
 type: feature
-status: in_progress
+status: closed
 priority: 1
 parent: 118
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-18T01:37:03.880634935Z
-updated_at: 2026-05-18T01:37:15.104238728Z
+updated_at: 2026-05-18T01:37:15.148874308Z
+closed_at: 2026-05-18T01:37:15.148873648Z
 ---
+
+---
+COMMENT
+2026-05-18T01:37:15.140454248Z
+author: witty-falcon
+
+Shipped. Calibration is now self-sufficient: two 1.5kHz clicks fire 50ms and 180ms into the capture window, routed to both speakers and AEC reference. Expect refRms to be around -20 to -30 dBFS (probe tones inside the window) and confidence well above 3 for any working speaker/mic loopback.
