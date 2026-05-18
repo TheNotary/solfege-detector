@@ -1,0 +1,33 @@
+---
+id: 139
+title: 'Phase 3: Add clickMaskEnabled setting + ConfigView toggle'
+type: task
+status: closed
+priority: 2
+parent: 136
+assignees:
+- gentle-umber
+events:
+- field: status
+  from: in_progress
+  to: in_progress
+  at: 2026-05-18T02:46:46.923851873Z
+created_at: 2026-05-18T02:41:46.837900226Z
+updated_at: 2026-05-18T02:47:31.539692752Z
+closed_at: 2026-05-18T02:47:31.539691872Z
+---
+
+Add to test-client/src/hooks/useGameSettings.ts:
+- clickMaskEnabled: boolean (default true)
+- Persisted in localStorage like the existing feedbackCancellation flag.
+
+Add the toggle to test-client/src/views/ConfigView.tsx next to 'Feedback Cancellation' with help text: 'Suppresses hits caused by metronome clicks bleeding into the mic.'
+
+Can ship in parallel with Phase 2 — they share no files.
+
+---
+COMMENT
+2026-05-18T02:47:31.527814182Z
+author: gentle-umber
+
+Added clickMaskEnabled (default true) to GameSettings + DEFAULTS in test-client/src/hooks/useGameSettings.ts, and a matching checkbox in test-client/src/views/ConfigView.tsx placed directly under the existing Feedback Cancellation toggle with help text explaining mic-side prediction window and the backend-audio invariant. 37/37 tests still pass.

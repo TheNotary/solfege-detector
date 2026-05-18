@@ -6,7 +6,7 @@ status: todo
 priority: 2
 parent: 118
 created_at: 2026-05-18T02:04:10.369902607Z
-updated_at: 2026-05-18T02:04:21.220649657Z
+updated_at: 2026-05-18T02:42:37.159597792Z
 ---
 
 ---
@@ -29,3 +29,10 @@ Possible directions:
 - Longer FIR / longer impulse-response coverage
 - Frequency-domain block adaptation (PBFDAF / FDAF) for faster transient convergence
 - Pre-trained impulse-response convolver fed from a one-shot click probe at startup, then a smaller adaptive FIR on top for residual
+
+---
+COMMENT
+2026-05-18T02:42:37.159597132Z
+author: gentle-umber
+
+Companion feature #136 created with an alternative approach: consumer-side click masking in the volume/onset detectors and waveform render, rather than improving FIR convergence here. The user-visible bug (clicks triggering spurious note hits) is addressed in #136; the deeper FIR work (longer FIR / FDAF / broadband-trained seed) outlined in this issue remains valid follow-up if waveform-level click cancellation becomes important later.

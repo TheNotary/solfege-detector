@@ -1,0 +1,45 @@
+---
+id: 138
+title: 'Phase 2: New useClickMask hook + vitest unit tests'
+type: task
+status: closed
+priority: 2
+parent: 136
+assignees:
+- gentle-umber
+events:
+- field: status
+  from: in_progress
+  to: in_progress
+  at: 2026-05-18T02:44:35.749244025Z
+created_at: 2026-05-18T02:41:43.970318373Z
+updated_at: 2026-05-18T02:46:46.903934943Z
+closed_at: 2026-05-18T02:46:46.903933953Z
+---
+
+Create test-client/src/hooks/useClickMask.ts. Pure logic, no Web Audio.
+
+API:
+- recordClick(clickAudioTime: number): pushes window [clickAudioTime + delaySec - leadGuardSec, clickAudioTime + delaySec + maskDurationSec]
+- isMaskedAt(audioTime: number): boolean — linear scan with cheap GC of windows whose endAudioTime < audioTime - 1s
+- clear(): resets the window store
+
+Inputs (live-readable via getters / opts so calibration changes apply on the NEXT recorded click without rebuilding state):
+- getDelayMs: () => number  (caller passes () => settings.audioLatencyMs)
+- maskDurationMs (default 80)
+- leadGuardMs (default 10)
+
+Plus test-client/src/hooks/useClickMask.test.ts (vitest):
+- recordClick + isMaskedAt: true inside window, false just before/after
+- GC: windows older than 1s past the current query time are dropped
+- delay change mid-stream affects only subsequently-recorded clicks
+- multiple overlapping windows behave correctly
+
+Defaults rationale: click envelope ~20 ms (ATTACK_SEC + RELEASE_SEC + STOP_PADDING_SEC in useMetronome) + small-room reverb tail ~30-60 ms. leadGuard absorbs cross-corr peak jitter.
+
+---
+COMMENT
+2026-05-18T02:46:46.895802313Z
+author: gentle-umber
+
+Implemented in test-client/src/hooks/useClickMask.ts with pure-logic core (createClickMaskStore) + thin React wrapper (useClickMask). Splitting kept tests dependency-free (no @testing-library/react needed). 12 vitest tests in useClickMask.test.ts cover: empty store, window math from delay+lead+trail, inclusive boundaries, defaults fallback, negative-delay clamp, live getDelayMs re-read per recordClick, clear(), GC of windows >1s past, GC keeps in-horizon, overlapping windows, gap-between-windows short-circuit. 37/37 tests pass.

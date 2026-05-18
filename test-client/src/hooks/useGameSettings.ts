@@ -20,6 +20,14 @@ export interface GameSettings {
    */
   feedbackCancellation: boolean;
   /**
+   * When true, suppress hit/onset detection and the on-screen waveform
+   * during predicted mic-arrival windows of each metronome click. Sidesteps
+   * the AEC for click leakage so spurious confetti / onset flashes don't
+   * fire on click bleed. The captured training audio sent to the backend
+   * is unaffected. Defaults to true.
+   */
+  clickMaskEnabled: boolean;
+  /**
    * When true, emit verbose AEC diagnostics to the browser console
    * (calibration result, per-stats reduction in dB, applied delay). Off
    * by default to avoid noise during normal play.
@@ -42,6 +50,7 @@ const DEFAULTS: GameSettings = {
   metronomeVolume: 0.25,
   metronomeOffsetMs: 0,
   feedbackCancellation: true,
+  clickMaskEnabled: true,
   logAecDetails: false,
 };
 

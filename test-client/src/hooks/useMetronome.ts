@@ -7,6 +7,16 @@ export interface MetronomeStartOptions {
   getOffsetSec: () => number;
   /** When true, every 4th beat is louder and higher-pitched. Default false. */
   accentDownbeats?: boolean;
+  /**
+   * Optional notifier invoked once per scheduled click with the click's
+   * audio-time (`AudioContext.currentTime` units) and accent flag. Fires from
+   * the lookahead scheduler ~`SCHEDULE_AHEAD_SEC` ahead of audible playback,
+   * so downstream consumers (e.g. click-leakage masking) can record the
+   * timing before the speakers fire. Re-read every beat alongside `getBpm`
+   * / `getOffsetSec`, so swapping callbacks via a fresh `start({…})` is not
+   * required for the new value to take effect on the next scheduled beat.
+   */
+  onClickScheduled?: (audioTime: number, accent: boolean) => void;
 }
 
 export interface UseMetronomeReturn {
@@ -130,6 +140,12 @@ export function useMetronome(
       if (beatTime >= ctx.currentTime) {
         const accent = !!opts.accentDownbeats && n % 4 === 0;
         scheduleBeat(beatTime, accent);
+        // Notify downstream consumers (e.g. click-leakage masking) with the
+        // scheduled audio-time. Fires from the lookahead scheduler, so
+        // listeners learn about clicks ~`SCHEDULE_AHEAD_SEC` before the
+        // speakers play them. Re-reads opts each beat so live callback
+        // swaps via `optsRef` work without restart.
+        opts.onClickScheduled?.(beatTime, accent);
       }
 
       beatIndexRef.current = n + 1;

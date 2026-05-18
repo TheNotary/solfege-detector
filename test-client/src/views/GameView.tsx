@@ -17,6 +17,7 @@ import { useDrone } from "../hooks/useDrone";
 import { useMetronome } from "../hooks/useMetronome";
 import { useReferenceMix } from "../hooks/useReferenceMix";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
+import { useClickMask } from "../hooks/useClickMask";
 import OnsetFlash from "../components/OnsetFlash";
 import WaveformCrosshair from "../components/WaveformCrosshair";
 import AppConfig from "../AppConfig";
@@ -120,6 +121,25 @@ interface GameViewProps {
 
 const DEFAULT_ROOT_HZ = 130.81; // C3
 
+/**
+ * Hot-path helper used by the four display-side callbacks (raw + filtered
+ * volume, raw + filtered onset feed). Bails the consumer if the toggle is
+ * on, an `AudioContext` is available, and `AudioContext.currentTime` falls
+ * inside any predicted click-leakage window. Returns `false` (i.e. "not
+ * masked, forward the sample") if anything is missing so we never silently
+ * drop data when the mask isn't wired up yet.
+ */
+function isClickMaskedNow(
+  audioContextRef: React.MutableRefObject<AudioContext | null>,
+  clickMaskEnabledRef: React.MutableRefObject<boolean>,
+  clickMask: { isMaskedAt: (audioTime: number) => boolean },
+): boolean {
+  if (!clickMaskEnabledRef.current) return false;
+  const ctx = audioContextRef.current;
+  if (!ctx) return false;
+  return clickMask.isMaskedAt(ctx.currentTime);
+}
+
 export default function GameView(_props: GameViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sentNoteIds = useRef<Set<number>>(new Set());
@@ -150,6 +170,23 @@ export default function GameView(_props: GameViewProps) {
 
   const { send, sendNoteEvent, isConnected } = useWebSocket(AppConfig.SOCKET_URL);
   const { volume, isSounding, onVolume } = useVolumeDetection();
+
+  // Predicted mic-arrival windows for each scheduled metronome click. The
+  // four display-side callbacks below consult this to drop click leakage
+  // before it can trip hit/onset detection. Uses the persisted/calibrated
+  // `audioLatencyMs` setting (not `aecStats.delaySamples`), so masking
+  // works even when `feedbackCancellation` is off.
+  const audioLatencyMsRef = useRef(settings.audioLatencyMs);
+  audioLatencyMsRef.current = settings.audioLatencyMs;
+  const clickMask = useClickMask({
+    getDelayMs: () => audioLatencyMsRef.current,
+  });
+  // Live mirrors consumed by the hot callbacks below so they don't need to
+  // be reconstructed (and the AEC `filteredActiveRef` ordering preserved)
+  // on every settings change.
+  const clickMaskEnabledRef = useRef(settings.clickMaskEnabled);
+  clickMaskEnabledRef.current = settings.clickMaskEnabled;
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const [onsetCount, setOnsetCount] = useState(0);
   const onOnset = useCallback(() => {
@@ -196,30 +233,34 @@ export default function GameView(_props: GameViewProps) {
   const onVolumeRaw = useCallback(
     (rms: number) => {
       if (filteredActiveRef.current) return;
+      if (isClickMaskedNow(audioContextRef, clickMaskEnabledRef, clickMask)) return;
       onVolume(rms);
     },
-    [onVolume],
+    [onVolume, clickMask],
   );
   const onVolumeFilteredCb = useCallback(
     (rms: number) => {
       filteredActiveRef.current = true;
+      if (isClickMaskedNow(audioContextRef, clickMaskEnabledRef, clickMask)) return;
       onVolume(rms);
     },
-    [onVolume],
+    [onVolume, clickMask],
   );
   const feedSamplesRaw = useCallback(
     (samples: Float32Array) => {
       if (filteredActiveRef.current) return;
+      if (isClickMaskedNow(audioContextRef, clickMaskEnabledRef, clickMask)) return;
       feedSamples(samples);
     },
-    [feedSamples],
+    [feedSamples, clickMask],
   );
   const feedSamplesFiltered = useCallback(
     (samples: Float32Array) => {
       filteredActiveRef.current = true;
+      if (isClickMaskedNow(audioContextRef, clickMaskEnabledRef, clickMask)) return;
       feedSamples(samples);
     },
-    [feedSamples],
+    [feedSamples, clickMask],
   );
 
   const { startRecording, stopRecording, isRecording, analyserNode, filteredAnalyserNode, aecStats, audioContext, startNoteCapture: startNoteCaptureRaw, stopNoteCapture, calibrateBulkDelay } =
@@ -249,6 +290,23 @@ export default function GameView(_props: GameViewProps) {
       filteredActiveRef.current = false;
     }
   }, [filteredAnalyserNode]);
+
+  // Mirror the live `audioContext` into a ref so the hot click-mask check
+  // in the four display-side callbacks doesn't have to be re-bound (and
+  // doesn't disturb the AEC `filteredActiveRef` ordering) every time the
+  // context (re)appears.
+  useEffect(() => {
+    audioContextRef.current = audioContext;
+  }, [audioContext]);
+
+  // Drop any in-flight mask windows the moment the toggle flips off, so a
+  // straggler "almost expired" window doesn't continue suppressing samples
+  // after the user disables click masking.
+  useEffect(() => {
+    if (!settings.clickMaskEnabled) {
+      clickMask.clear();
+    }
+  }, [settings.clickMaskEnabled, clickMask]);
 
   // Auto-calibrate the AEC bulk delay once the worklet is wired up and a
   // probe signal (metronome and/or drone) is available. Without this the
@@ -667,6 +725,7 @@ export default function GameView(_props: GameViewProps) {
       stopGame();
       stopRecording();
       metronome.stop();
+      clickMask.clear();
       sentNoteIds.current.clear();
     } else {
       startGame();
@@ -675,10 +734,13 @@ export default function GameView(_props: GameViewProps) {
         metronome.start({
           getBpm: () => bpmRef.current,
           getOffsetSec: () => metronomeOffsetMsRef.current / 1000,
+          onClickScheduled: (audioTime) => {
+            if (clickMaskEnabledRef.current) clickMask.recordClick(audioTime);
+          },
         });
       }
     }
-  }, [isRunning, startGame, stopGame, startRecording, stopRecording, metronome, metronomeEnabled]);
+  }, [isRunning, startGame, stopGame, startRecording, stopRecording, metronome, metronomeEnabled, clickMask]);
 
   // Start/stop the metronome live when the toggle flips during a running game.
   useEffect(() => {
@@ -687,11 +749,15 @@ export default function GameView(_props: GameViewProps) {
       metronome.start({
         getBpm: () => bpmRef.current,
         getOffsetSec: () => metronomeOffsetMsRef.current / 1000,
+        onClickScheduled: (audioTime) => {
+          if (clickMaskEnabledRef.current) clickMask.recordClick(audioTime);
+        },
       });
     } else if (!metronomeEnabled && metronome.isRunning()) {
       metronome.stop();
+      clickMask.clear();
     }
-  }, [isRunning, metronomeEnabled, metronome]);
+  }, [isRunning, metronomeEnabled, metronome, clickMask]);
 
   // Esc key → stop everything and return to main menu
   useEffect(() => {
@@ -701,6 +767,7 @@ export default function GameView(_props: GameViewProps) {
           stopGame();
           stopRecording();
           metronome.stop();
+          clickMask.clear();
           sentNoteIds.current.clear();
         }
         if (isDroning) stopDrone();
@@ -709,7 +776,7 @@ export default function GameView(_props: GameViewProps) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isRunning, isDroning, stopGame, stopRecording, stopDrone, navigate, metronome]);
+  }, [isRunning, isDroning, stopGame, stopRecording, stopDrone, navigate, metronome, clickMask]);
 
   return (
     <div className="game-container" ref={containerRef}>
@@ -861,7 +928,13 @@ export default function GameView(_props: GameViewProps) {
       {/* Crosshair.  Width is derived from the same helper that powers the
           debug overlay so the cyan box and the yellow debug box are
           geometrically identical by construction (see #109). */}
-      <WaveformCrosshair analyserNode={displayAnalyserNode} x={CROSSHAIR_X} isRecording={isRecording} />
+      <WaveformCrosshair
+        analyserNode={displayAnalyserNode}
+        x={CROSSHAIR_X}
+        isRecording={isRecording}
+        clickMask={settings.clickMaskEnabled ? clickMask : null}
+        audioContext={audioContext}
+      />
       <div
         className="crosshair-zone"
         style={{

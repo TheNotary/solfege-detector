@@ -1,0 +1,46 @@
+---
+id: 136
+title: Mask metronome clicks from hit/onset/waveform consumers
+type: feature
+status: todo
+priority: 2
+parent: 118
+created_at: 2026-05-18T02:41:26.348016973Z
+updated_at: 2026-05-18T02:41:26.348016973Z
+---
+
+## Summary
+Sidestep the AEC for metronome clicks: the metronome already schedules every click in audio time and `audioLatencyMs` is auto-calibrated, so we can mask the predicted mic-arrival window of each click in the display-side consumers (volume/onset) AND in the waveform render. AEC code is untouched.
+
+## User Message
+> We have a bug where the beat clicks are feeding back into the microphone, causing them to trigger the note hits without any input from the player. 118, 125, and 135 capture observations of this bug. Since we're canceling the drone effectively, we know that we have the ability to cancel sounds out of the waveform. But we aren't having any effect on the beat clicks. I'm suspecting that something is off with our timing of the cancelation. Create a plan to resolve the issue.
+
+## Diagnosis
+Reference tap and audible click are sample-identical (see `useMetronome.scheduleBeat` — each click's gain node connects to both `ctx.destination` and `monitorRef.current` in the same call). Bulk delay calibration is verified correct (drone cancels 20+ dB per #135). The real failure is **NLMS lack of persistent excitation**: a sustained sine only excites the FIR at one frequency, so coefficients are unconstrained outside the drone's spectral support. A 1.5 kHz broadband click can't be predicted by a FIR trained on a 130 Hz sine. Per the user-confirmed scope, the drone is usually OFF when this bug fires, so the NLMS path isn't even adapting — clicks pass through nearly unattenuated, cross VOLUME_THRESHOLD = 0.02 in useVolumeDetection, and register as hits.
+
+## Scope decisions (confirmed with user)
+- Consumer-side gating only — no AEC changes.
+- Mask the waveform cyan trace as well (not just hit/onset detectors).
+- Drone usually OFF when bug is observed.
+
+## Relationship to #135
+This addresses the user-visible bug from #135 (clicks fire spurious hits) without changing the AEC. The deeper FIR-convergence work in #135 (longer FIR, FDAF, broadband-trained seed) remains valid follow-up if waveform-level cancellation becomes important later, but is out of scope here.
+
+## Plan
+See /memories/session/plan.md for the full version with phase dependencies, file lists, and verification cases. Six phases:
+1. Click schedule plumbing (add onClickScheduled to useMetronome)
+2. New useClickMask hook with vitest unit tests
+3. Settings + ConfigView toggle (clickMaskEnabled, default true) — parallel with 2
+4. Wire mask into the four display-side callbacks in GameView (depends on 1–3)
+5. Blank the waveform inside masked windows in WaveformCrosshair (depends on 4)
+6. Manual hardware verification (user runs in Chrome with mic + speakers)
+
+## Defaults
+- maskDurationMs = 80 (covers ~20 ms click envelope + ~30–60 ms small-room reverb tail)
+- leadGuardMs = 10 (absorbs cross-corr peak jitter)
+- Mask timing: predictedMicTime = clickAudioTime + audioLatencyMs/1000. Uses the persisted/calibrated setting, NOT aecStats.delaySamples, so masking works even with feedbackCancellation OFF.
+
+## Out of scope
+- AEC algorithm changes (FIR length, FDAF, broadband-trained seed) — remain captured by #135.
+- Backend audio path — still raw via onChunk ScriptProcessor (same #118 invariant).
+- Pitch detection masking — clicks are above vocal range and would risk dropping beat-aligned notes.

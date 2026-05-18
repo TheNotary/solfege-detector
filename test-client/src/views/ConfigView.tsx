@@ -127,6 +127,25 @@ export default function ConfigView() {
           </small>
         </div>
 
+        {/* Click-mask toggle */}
+        <div className="config-field">
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={draft.clickMaskEnabled}
+              onChange={(e) => set("clickMaskEnabled", e.target.checked)}
+            />
+            Mask metronome clicks from hit detection
+          </label>
+          <small className="field-help">
+            Suppresses hits caused by metronome clicks bleeding into the
+            mic. Uses the calibrated audio latency to predict when each
+            click reaches the mic and briefly blanks the volume gate,
+            onset detector, and waveform during that window. Audio sent
+            to the backend is unaffected.
+          </small>
+        </div>
+
         {/* AEC debug logging toggle */}
         <div className="config-field">
           <label className="checkbox-row">

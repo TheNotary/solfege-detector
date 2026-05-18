@@ -1,10 +1,31 @@
 import { useEffect, useRef } from "react";
 import "./WaveformCrosshair.css";
 
+/**
+ * Subset of the `useClickMask` return shape this component actually needs.
+ * Kept inline to avoid pulling the hook's full type surface and so the
+ * component can be exercised in isolation by tests / Storybook.
+ */
+interface ClickMaskView {
+  getWindows: () => ReadonlyArray<{
+    readonly startAudioTime: number;
+    readonly endAudioTime: number;
+  }>;
+}
+
 interface WaveformCrosshairProps {
   analyserNode: AnalyserNode | null;
   x: number;
   isRecording: boolean;
+  /**
+   * Optional predicted click-arrival windows. When supplied alongside
+   * `audioContext`, samples whose mic-arrival time falls inside any
+   * active window are flattened to the centerline so the user sees the
+   * trace dip through centre instead of a click spike. No-op when either
+   * prop is absent (e.g. mask toggle off).
+   */
+  clickMask?: ClickMaskView | null;
+  audioContext?: AudioContext | null;
 }
 
 const CANVAS_WIDTH = 160;
@@ -44,10 +65,20 @@ export default function WaveformCrosshair({
   analyserNode,
   x,
   isRecording,
+  clickMask,
+  audioContext,
 }: WaveformCrosshairProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number>(0);
   const dataArrayRef = useRef<Uint8Array | null>(null);
+  // Mirror the live props inside the long-running RAF closure so we don't
+  // have to rebind the entire draw loop (and reallocate buffers) on every
+  // render. The effect only re-runs when `analyserNode` / `isRecording`
+  // flip.
+  const clickMaskRef = useRef<ClickMaskView | null | undefined>(clickMask);
+  clickMaskRef.current = clickMask;
+  const audioContextRef = useRef<AudioContext | null | undefined>(audioContext);
+  audioContextRef.current = audioContext;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -102,6 +133,42 @@ export default function WaveformCrosshair({
 
         const len = data.length;
         const maxAmplitude = w * 0.45; // max horizontal displacement
+
+        // Click-mask overlay (Option A from plan): flatten any sample
+        // whose mic-arrival time falls inside an active mask window.
+        // Sample index i corresponds to mic time
+        //   t_i = ctx.currentTime - (len - 1 - i) / sampleRate
+        // (the buffer's last entry is "now"). Both the windows array and
+        // the samples are time-ordered, so we sweep with two pointers
+        // instead of paying an `isMaskedAt` call per sample. Writes 128
+        // (the centerline byte for `getByteTimeDomainData`) so the trace
+        // dips through centre instead of showing the click spike.
+        const maskCtx = audioContextRef.current;
+        const maskSrc = clickMaskRef.current;
+        if (maskCtx && maskSrc) {
+          const windows = maskSrc.getWindows();
+          if (windows.length > 0) {
+            const sampleRate = maskCtx.sampleRate;
+            const now = maskCtx.currentTime;
+            const baseTime = now - (len - 1) / sampleRate;
+            let wi = 0;
+            // Advance past any window that ended before the buffer starts.
+            while (wi < windows.length && windows[wi].endAudioTime < baseTime) {
+              wi++;
+            }
+            for (let i = 0; i < len && wi < windows.length; i++) {
+              const t = baseTime + i / sampleRate;
+              // Skip windows fully before this sample's time.
+              while (wi < windows.length && windows[wi].endAudioTime < t) {
+                wi++;
+              }
+              if (wi >= windows.length) break;
+              if (t >= windows[wi].startAudioTime) {
+                data[i] = 128;
+              }
+            }
+          }
+        }
 
         // Noise gate: compute RMS and suppress when below threshold
         let sumSq = 0;

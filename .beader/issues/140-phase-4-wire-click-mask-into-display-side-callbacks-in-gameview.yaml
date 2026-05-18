@@ -1,0 +1,55 @@
+---
+id: 140
+title: 'Phase 4: Wire click mask into display-side callbacks in GameView'
+type: task
+status: closed
+priority: 2
+parent: 136
+blocked_by:
+- 137
+- 138
+- 139
+assignees:
+- gentle-umber
+events:
+- field: status
+  from: in_progress
+  to: in_progress
+  at: 2026-05-18T02:47:37.451510202Z
+created_at: 2026-05-18T02:41:55.423307716Z
+updated_at: 2026-05-18T02:50:10.841799125Z
+closed_at: 2026-05-18T02:50:10.841798025Z
+---
+
+In test-client/src/views/GameView.tsx:
+
+1. Instantiate: const clickMask = useClickMask({ getDelayMs: () => settings.audioLatencyMs, maskDurationMs: 80, leadGuardMs: 10 });
+
+2. Pass onClickScheduled into BOTH metronome.start({...}) sites:
+   onClickScheduled: (t) => { if (settings.clickMaskEnabled) clickMask.recordClick(t); }
+
+3. When metronome.stop() runs or settings.clickMaskEnabled flips off, call clickMask.clear().
+
+4. Short-circuit the four display-side callbacks when masked:
+   - onVolumeRaw / onVolumeFilteredCb: if audioContext && clickMask.isMaskedAt(audioContext.currentTime), return early before calling onVolume.
+   - feedSamplesRaw / feedSamplesFiltered: same gate before calling feedSamples.
+   - Preserve the existing filteredActiveRef dedup order (mask check happens AFTER the dedup flip but BEFORE the consumer call).
+
+Depends on Phases 1, 2, 3.
+
+---
+COMMENT
+2026-05-18T02:50:10.834431655Z
+author: gentle-umber
+
+Wired the click mask end-to-end inside GameView.tsx:
+
+- Created a `clickMask` store via `useClickMask({ getDelayMs: () => audioLatencyMsRef.current })`, plus mirror refs (`audioContextRef`, `clickMaskEnabledRef`, `audioLatencyMsRef`) so the hot callbacks don't rebuild on every settings update.
+- All four display-side callbacks (`onVolumeRaw`, `onVolumeFilteredCb`, `feedSamplesRaw`, `feedSamplesFiltered`) now invoke a shared `isClickMaskedNow` helper *after* the existing `filteredActiveRef` dedup but *before* forwarding to `onVolume` / `feedSamples`, preserving AEC raw/filtered ordering while suppressing predicted click-arrival samples.
+- Both `metronome.start({…})` sites (handleToggle + live-toggle effect) pass `onClickScheduled: (audioTime) => clickMask.recordClick(audioTime)` (gated on `clickMaskEnabledRef`).
+- `clickMask.clear()` runs adjacent to all three `metronome.stop()` paths (handleToggle, live-toggle effect, Esc handler) and in a dedicated effect when `settings.clickMaskEnabled` flips false.
+- Added an effect to mirror the live `AudioContext` into `audioContextRef` so the per-callback `isMaskedAt(ctx.currentTime)` check stays cheap and lock-free.
+
+Verification:
+- `pnpm exec tsc -b` → only the pre-existing TS6133 unused-symbol warnings (in unrelated files); no new errors.
+- `pnpm test --run` → 36/37 passing; the one failure (`delayCalibration.test.ts > recovers a delay from a sustained drone reference`) is a flaky pre-existing test that passes when run alone — unrelated to this change.
