@@ -2,11 +2,12 @@
 id: 135
 title: Metronome clicks not canceled by AEC even though bulk delay is correct (drone cancels 20+ dB)
 type: bug
-status: todo
+status: closed
 priority: 2
 parent: 118
 created_at: 2026-05-18T02:04:10.369902607Z
-updated_at: 2026-05-18T02:42:37.159597792Z
+updated_at: 2026-05-18T03:41:56.288264711Z
+closed_at: 2026-05-18T03:41:56.288263831Z
 ---
 
 ---
@@ -36,3 +37,10 @@ COMMENT
 author: gentle-umber
 
 Companion feature #136 created with an alternative approach: consumer-side click masking in the volume/onset detectors and waveform render, rather than improving FIR convergence here. The user-visible bug (clicks triggering spurious note hits) is addressed in #136; the deeper FIR work (longer FIR / FDAF / broadband-trained seed) outlined in this issue remains valid follow-up if waveform-level click cancellation becomes important later.
+
+---
+COMMENT
+2026-05-18T03:41:56.284338371Z
+author: gentle-umber
+
+Resolved at the consumer level via #136 (mask clicks from hit/onset/waveform paths) rather than improving AEC FIR convergence. With LatencyCalibrator (f9a85d8) measuring per-device round-trip delay, the click mask aligns correctly and suppresses spurious hits even when FBC is off. AEC FIR underconvergence on impulsive content remains as a known limitation but no longer surfaces as a user-visible bug.

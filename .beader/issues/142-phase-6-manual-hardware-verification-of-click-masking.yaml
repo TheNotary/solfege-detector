@@ -2,12 +2,11 @@
 id: 142
 title: 'Phase 6: Manual hardware verification of click masking'
 type: task
-status: in_progress
+status: closed
 priority: 2
 parent: 136
 blocked_by:
 - 141
-claimed_by: gentle-umber
 assignees:
 - gentle-umber
 events:
@@ -16,7 +15,8 @@ events:
   to: in_progress
   at: 2026-05-18T02:51:24.521436972Z
 created_at: 2026-05-18T02:42:15.072342052Z
-updated_at: 2026-05-18T02:51:24.521438182Z
+updated_at: 2026-05-18T03:41:46.505183821Z
+closed_at: 2026-05-18T03:41:46.505182831Z
 ---
 
 User runs in Chrome with real mic + speakers. Implementer (next session) instructs one case at a time and waits for the user to report results.
@@ -32,3 +32,10 @@ Cases:
 When all six pass, close this issue and add a comment to #135 noting that the user-visible bug was fixed via consumer-side gating in #136 rather than improving AEC FIR convergence (so #135 remains valid follow-up for waveform-level click cancellation if needed later).
 
 Also revisit #125 (existing manual verification task on #118) — its checks should still pass since this work is purely additive on top of #118.
+
+---
+COMMENT
+2026-05-18T03:41:46.499407061Z
+author: gentle-umber
+
+Calibrator bug found and fixed in f9a85d8 (LatencyCalibrator was passing referenceNode: null to useAudioStream, so AEC never built and probe hung). With calibration working, the click mask aligns correctly and suppresses spurious hits from metronome feedback. Closing as fixed.

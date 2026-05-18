@@ -2,11 +2,12 @@
 id: 136
 title: Mask metronome clicks from hit/onset/waveform consumers
 type: feature
-status: todo
+status: closed
 priority: 2
 parent: 118
 created_at: 2026-05-18T02:41:26.348016973Z
-updated_at: 2026-05-18T02:41:26.348016973Z
+updated_at: 2026-05-18T03:41:56.278686571Z
+closed_at: 2026-05-18T03:41:56.278685801Z
 ---
 
 ## Summary
@@ -44,3 +45,10 @@ See /memories/session/plan.md for the full version with phase dependencies, file
 - AEC algorithm changes (FIR length, FDAF, broadband-trained seed) — remain captured by #135.
 - Backend audio path — still raw via onChunk ScriptProcessor (same #118 invariant).
 - Pitch detection masking — clicks are above vocal range and would risk dropping beat-aligned notes.
+
+---
+COMMENT
+2026-05-18T03:41:56.274894651Z
+author: gentle-umber
+
+All phases (#137-#142) complete. Consumer-side click masking shipped: onClickScheduled callback, useClickMask hook with 220ms/40ms defaults, ConfigView toggle, GameView gating on raw+filtered volume/onset feeds, WaveformCrosshair blanking, and LatencyCalibrator in ConfigView for per-device delay calibration. 37/37 tests passing. Feedback hits from metronome clicks are suppressed regardless of FBC state.
