@@ -33,6 +33,53 @@ function hzToNoteName(hz: number): string {
   return `${NOTE_NAMES[(noteIndex + 9) % 12]}${octave}`;
 }
 
+/**
+ * Schedules N short sine-wave clicks that are routed to BOTH the audible
+ * `ctx.destination` and the AEC `refMix` tap. Used as a deterministic
+ * calibration probe so bulk-delay measurement doesn't depend on the user
+ * having started the drone or enabled the metronome.
+ *
+ * Each click is ~20 ms long with a 2 ms attack and a fast release, giving
+ * a sharp transient with rich broadband content for cross-correlation.
+ */
+function emitCalibrationProbe(
+  ctx: AudioContext,
+  refMix: AudioNode,
+  options: { freqHz?: number; volume?: number; offsetsSec?: number[] } = {},
+): void {
+  const freqHz = options.freqHz ?? 1500;
+  const volume = options.volume ?? 0.25;
+  const offsetsSec = options.offsetsSec ?? [0.05, 0.18];
+  const t0 = ctx.currentTime;
+  for (const offset of offsetsSec) {
+    const when = t0 + offset;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freqHz;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, when);
+    gain.gain.linearRampToValueAtTime(volume, when + 0.002);
+    gain.gain.linearRampToValueAtTime(0, when + 0.02);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    try {
+      gain.connect(refMix);
+    } catch {
+      // ignore if refMix is from a foreign context (shouldn't happen)
+    }
+    osc.start(when);
+    osc.stop(when + 0.05);
+    osc.onended = () => {
+      try {
+        osc.disconnect();
+        gain.disconnect();
+      } catch {
+        // already disconnected
+      }
+    };
+  }
+}
+
 interface GameViewProps {
   isConnected?: boolean;
 }
@@ -99,6 +146,11 @@ export default function GameView(_props: GameViewProps) {
   // node into this slot once both halves of the graph exist, which triggers
   // the AEC effect inside `useAudioStream` to wire up the worklet.
   const [referenceNode, setReferenceNode] = useState<AudioNode | null>(null);
+  // Mirror the same node into a ref so the calibration effect (which lives
+  // higher up in the file than `useReferenceMix`) can emit probe ticks
+  // straight into the reference channel without re-firing on every
+  // referenceMix identity change.
+  const referenceMixRef = useRef<AudioNode | null>(null);
 
   // Dedup raw vs. filtered display-side callbacks without referencing the
   // hook's own destructured result (which would be a TDZ access). As soon as
@@ -188,10 +240,35 @@ export default function GameView(_props: GameViewProps) {
 
     const timer = setTimeout(async () => {
       try {
+        // Emit our own calibration probe (two short clicks routed to both
+        // the speakers and the AEC reference tap) so calibration works
+        // even when the user hasn't started the drone and the metronome
+        // is disabled. The probe is scheduled in audio time; we kick off
+        // the worklet capture immediately so the capture window contains
+        // the probe tones (and, after the round-trip, their echo in the
+        // mic).
+        const ctx = audioContext;
+        const refMix = referenceMixRef.current;
+        if (ctx && refMix) {
+          emitCalibrationProbe(ctx, refMix, {
+            freqHz: 1500,
+            volume: 0.25,
+            offsetsSec: [0.05, 0.18],
+          });
+        } else if (settings.logAecDetails) {
+          console.warn(
+            `[AEC debug] no probe source available for calibration ` +
+              `(audioContext=${ctx ? "ok" : "missing"}, refMix=${refMix ? "ok" : "missing"})`,
+          );
+        }
+
         const result = await calibrateBulkDelay({
-          windowSamples: 8192, // ~186 ms @ 44.1 kHz
+          // 16384 samples ≈ 371 ms @ 44.1 kHz, wide enough to contain both
+          // probe clicks plus their round-trip echo at the mic (typical
+          // speaker→mic round-trip is well under 200 ms).
+          windowSamples: 16384,
           maxLagSamples: 4410, // ~100 ms search range
-          minConfidence: 1.5,
+          minConfidence: 3,
         });
         if (!result) {
           console.warn("[GameView] AEC bulk-delay calibration timed out or returned no data");
@@ -215,6 +292,13 @@ export default function GameView(_props: GameViewProps) {
               `micRms=${result.micRmsDb.toFixed(1)} dBFS, ` +
               `refRms=${result.refRmsDb.toFixed(1)} dBFS`,
           );
+          if (result.refRmsDb < -120) {
+            console.warn(
+              `[AEC debug] reference channel is silent (refRms=${result.refRmsDb.toFixed(1)} dBFS). ` +
+                `Probe was scheduled but didn't show up — likely useReferenceMix isn't actually ` +
+                `connected to the AEC worklet, or the speaker output is muted.`,
+            );
+          }
         }
         if (result.applied) {
           // Persist so future sessions start with a sensible value (also
@@ -224,9 +308,9 @@ export default function GameView(_props: GameViewProps) {
       } catch (err) {
         console.error("[GameView] AEC bulk-delay calibration threw:", err);
       }
-    }, 700);
+    }, 200);
     return () => clearTimeout(timer);
-  }, [filteredAnalyserNode, isRecording, calibrateBulkDelay, updateSetting, settings.logAecDetails]);
+  }, [filteredAnalyserNode, isRecording, calibrateBulkDelay, updateSetting, settings.logAecDetails, audioContext]);
 
   // When the debug flag is on, surface every AEC stats update (~10/sec).
   // The worklet reports the *currently applied* bulk delay along with the
@@ -312,6 +396,7 @@ export default function GameView(_props: GameViewProps) {
   // Bridge the reference-mix tap up to `useAudioStream` (declared earlier).
   useEffect(() => {
     setReferenceNode(referenceMix);
+    referenceMixRef.current = referenceMix;
   }, [referenceMix]);
   const { startDrone, stopDrone, isDroning, setDroneVolume } = useDrone(
     audioContext,

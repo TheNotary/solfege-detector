@@ -1,0 +1,13 @@
+---
+id: 131
+title: Calibration emits its own probe clicks so it doesn't depend on drone/metronome
+type: feature
+status: in_progress
+priority: 1
+parent: 118
+claimed_by: witty-falcon
+assignees:
+- witty-falcon
+created_at: 2026-05-18T01:37:03.880634935Z
+updated_at: 2026-05-18T01:37:15.104238728Z
+---
