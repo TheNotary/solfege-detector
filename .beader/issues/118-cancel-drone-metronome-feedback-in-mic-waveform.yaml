@@ -2,11 +2,12 @@
 id: 118
 title: Cancel drone & metronome feedback in mic waveform
 type: feature
-status: todo
+status: closed
 priority: 2
 parent: 26
 created_at: 2026-05-17T23:30:16.906265910Z
-updated_at: 2026-05-17T23:46:25.489571484Z
+updated_at: 2026-05-18T03:57:38.068450849Z
+closed_at: 2026-05-18T03:57:38.068449749Z
 ---
 
 ## Summary

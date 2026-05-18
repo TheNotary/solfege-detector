@@ -2,14 +2,15 @@
 id: 125
 title: 'Verification: end-to-end manual + offline tests for feedback cancellation'
 type: task
-status: todo
+status: closed
 priority: 2
 parent: 118
 blocked_by:
 - 122
 - 123
 created_at: 2026-05-17T23:31:06.852840831Z
-updated_at: 2026-05-17T23:45:53.926595395Z
+updated_at: 2026-05-18T03:53:04.704873453Z
+closed_at: 2026-05-18T03:53:04.704872023Z
 ---
 
 Confirm the feature works in practice and that backend audio is untouched.
