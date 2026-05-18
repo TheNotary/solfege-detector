@@ -2,12 +2,19 @@
 id: 129
 title: Add 'Log AEC Cancelation Details' debug setting
 type: task
-status: in_progress
+status: closed
 priority: 2
 parent: 118
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-18T01:25:54.116844812Z
-updated_at: 2026-05-18T01:26:05.517228092Z
+updated_at: 2026-05-18T01:26:05.587043992Z
+closed_at: 2026-05-18T01:26:05.587043112Z
 ---
+
+---
+COMMENT
+2026-05-18T01:26:05.572358002Z
+author: witty-falcon
+
+Shipped. Toggle is in Config view labelled 'Log AEC Cancelation Details'. When on, console gets one calibration summary line plus a per-stats line showing mic/ref/residual dB and reduction. Diagnose by checking: (1) refRmsDb high enough -> ref signal reaching worklet; (2) delaySamples > 0 -> calibration applied; (3) reduction > 5 dB during drone -> FIR working; (4) reduction at click moments -> the actual problem.
