@@ -39,47 +39,73 @@ function hzToNoteName(hz: number): string {
  * calibration probe so bulk-delay measurement doesn't depend on the user
  * having started the drone or enabled the metronome.
  *
- * Each click is ~20 ms long with a 2 ms attack and a fast release, giving
- * a sharp transient with rich broadband content for cross-correlation.
+ * The probe is a short broadband white-noise burst (NOT a pure tone).
+ * Cross-correlation of a pure tone with its echo is periodic with the
+ * tone's period — a 1500 Hz tone repeats every ~29 samples at 44.1 kHz,
+ * so peaks appear at lag 0, 14, 28, 42, ... and the algorithm can't tell
+ * which cycle holds the true delay. Broadband noise has a delta-like
+ * autocorrelation, so the cross-correlation has a single sharp peak at
+ * the true speaker→mic round-trip delay.
  */
 function emitCalibrationProbe(
   ctx: AudioContext,
   refMix: AudioNode,
-  options: { freqHz?: number; volume?: number; offsetsSec?: number[] } = {},
+  options: { volume?: number; offsetsSec?: number[]; burstMs?: number } = {},
 ): void {
-  const freqHz = options.freqHz ?? 1500;
   // Louder than a normal click: we want the speaker echo to clear the
   // mic noise floor (~ -45 dBFS on laptop mics) by a comfortable margin.
   // -6 dBFS at source + ~30 dB acoustic loss → ~-36 dBFS at mic, ~10 dB
   // above noise floor.
   const volume = options.volume ?? 0.5;
-  // Four staggered clicks across the capture window so the cross-correlator
-  // gets multiple uncorrelated chances. 80 ms spacing keeps the autocorrelation
-  // unambiguous (echoes never overlap from one click to the next at typical
-  // speaker→mic distances).
+  // Four staggered bursts across the capture window so the cross-correlator
+  // gets multiple independent chances. 80 ms spacing keeps each burst's
+  // echo (~10-30 ms) well separated from the next burst.
   const offsetsSec = options.offsetsSec ?? [0.04, 0.12, 0.20, 0.28];
+  // Burst length: long enough to contain meaningful broadband energy
+  // (~10 ms = 441 samples @ 44.1 kHz → frequencies down to ~100 Hz are
+  // represented), short enough that its own autocorrelation lobe (±burst
+  // length) is narrow relative to the search range.
+  const burstSec = (options.burstMs ?? 10) / 1000;
+
+  // Generate one shared white-noise AudioBuffer; each burst gets its own
+  // BufferSourceNode pointing at this buffer. Using the *same* buffer for
+  // every burst means each burst correlates against the same reference
+  // pattern — the cross-correlator effectively sees N identical pulses
+  // and integrates them.
+  const burstSamples = Math.max(1, Math.floor(burstSec * ctx.sampleRate));
+  const noiseBuffer = ctx.createBuffer(1, burstSamples, ctx.sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < burstSamples; i++) {
+    // Uniform white noise in [-1, 1]; the per-burst gain envelope below
+    // scales this down to the requested `volume`.
+    noiseData[i] = Math.random() * 2 - 1;
+  }
+
   const t0 = ctx.currentTime;
   for (const offset of offsetsSec) {
     const when = t0 + offset;
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = freqHz;
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
     const gain = ctx.createGain();
+    // Short attack/release so the burst isn't a hard click (which would
+    // ring the speaker tweeters); the noise itself is broadband so we
+    // don't need extra HF content from a hard edge.
     gain.gain.setValueAtTime(0, when);
-    gain.gain.linearRampToValueAtTime(volume, when + 0.002);
-    gain.gain.linearRampToValueAtTime(0, when + 0.02);
-    osc.connect(gain);
+    gain.gain.linearRampToValueAtTime(volume, when + 0.001);
+    gain.gain.setValueAtTime(volume, when + burstSec - 0.001);
+    gain.gain.linearRampToValueAtTime(0, when + burstSec);
+    src.connect(gain);
     gain.connect(ctx.destination);
     try {
       gain.connect(refMix);
     } catch {
       // ignore if refMix is from a foreign context (shouldn't happen)
     }
-    osc.start(when);
-    osc.stop(when + 0.05);
-    osc.onended = () => {
+    src.start(when);
+    src.stop(when + burstSec + 0.005);
+    src.onended = () => {
       try {
-        osc.disconnect();
+        src.disconnect();
         gain.disconnect();
       } catch {
         // already disconnected
@@ -258,11 +284,8 @@ export default function GameView(_props: GameViewProps) {
         const ctx = audioContext;
         const refMix = referenceMixRef.current;
         if (ctx && refMix) {
-          emitCalibrationProbe(ctx, refMix, {
-            freqHz: 1500,
-            volume: 0.25,
-            offsetsSec: [0.05, 0.18],
-          });
+          // Use defaults: 4 broadband white-noise bursts of 10 ms at -6 dBFS.
+          emitCalibrationProbe(ctx, refMix);
         } else if (settings.logAecDetails) {
           console.warn(
             `[AEC debug] no probe source available for calibration ` +
@@ -271,12 +294,16 @@ export default function GameView(_props: GameViewProps) {
         }
 
         const result = await calibrateBulkDelay({
-          // 16384 samples ≈ 371 ms @ 44.1 kHz, wide enough to contain both
-          // probe clicks plus their round-trip echo at the mic (typical
-          // speaker→mic round-trip is well under 200 ms).
+          // 16384 samples ≈ 371 ms @ 44.1 kHz, wide enough to contain all
+          // four probe bursts plus their round-trip echoes at the mic
+          // (typical speaker→mic round-trip is well under 200 ms).
           windowSamples: 16384,
           maxLagSamples: 4410, // ~100 ms search range
           minConfidence: 3,
+          // Broadband noise bursts should yield a single sharp positive
+          // peak well above 0.25. Reject anything weaker (or negative)
+          // rather than overwrite a previously-good saved delay.
+          minPeakCorrelation: 0.25,
         });
         if (!result) {
           console.warn("[GameView] AEC bulk-delay calibration timed out or returned no data");

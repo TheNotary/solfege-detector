@@ -1,0 +1,13 @@
+---
+id: 134
+title: Use broadband white-noise probe instead of pure tone (fixes periodic-correlation ambiguity)
+type: bug
+status: in_progress
+priority: 1
+parent: 118
+claimed_by: witty-falcon
+assignees:
+- witty-falcon
+created_at: 2026-05-18T01:57:25.018716042Z
+updated_at: 2026-05-18T01:57:38.368972625Z
+---
