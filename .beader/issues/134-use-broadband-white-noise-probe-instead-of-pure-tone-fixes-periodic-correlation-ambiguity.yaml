@@ -2,12 +2,19 @@
 id: 134
 title: Use broadband white-noise probe instead of pure tone (fixes periodic-correlation ambiguity)
 type: bug
-status: in_progress
+status: closed
 priority: 1
 parent: 118
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-18T01:57:25.018716042Z
-updated_at: 2026-05-18T01:57:38.368972625Z
+updated_at: 2026-05-18T01:57:45.852546635Z
+closed_at: 2026-05-18T01:57:45.852545975Z
 ---
+
+---
+COMMENT
+2026-05-18T01:57:45.845799675Z
+author: witty-falcon
+
+Diagnosis from bd #133 logs: 1500 Hz tone has 29.4-sample period at 44.1 kHz, cross-correlation was periodic with that period, picked the half-period peak (lag 13, anti-correlated). Replaced with broadband white-noise bursts. Now one sharp positive peak at the true round-trip delay should dominate.
