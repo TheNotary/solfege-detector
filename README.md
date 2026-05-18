@@ -33,9 +33,10 @@ The test-client presents a rhythm-game interface:
 - **Per-note audio capture** — the client accumulates audio while a note is in the hit zone and sends it to the server via the two-frame WebSocket protocol
 - **Speed slider** controls note spawn rate (10–120 BPM)
 - **Backend recording** — per-note audio (onset-trimmed) is the primary capture path; the rolling recording buffer (~3 seconds around each event) is used as a fallback. Both save `.wav` + `.metadata` files to `recorded_notes/`
-- **Latency calibration** — two-phase calibration: audio input latency (say "pop" with synthesized clicks) and display latency (press spacebar when note reaches crosshair). Offsets shift the hit-zone timing during gameplay
+- **Latency calibration** — two-phase calibration: audio input latency (say "pop" with synthesized clicks) and display latency (press spacebar when note reaches crosshair). Offsets shift the hit-zone timing during gameplay. An on-demand **LatencyCalibrator** widget in Configurations → "Audio Latency" emits two short white-noise bursts and runs `calibrateBulkDelay` to measure round-trip mic delay per device.
 - **Feedback cancellation** — an adaptive AEC AudioWorklet subtracts the drone + metronome bleed from the on-screen waveform and hit-zone visual feedback path. Toggle via Configurations → "Cancel drone/metronome bleed from waveform". The audio captured for backend training is always raw.
-- **Persistent settings** — speed, responsiveness, root note, drone volume, debug mode, feedback cancellation, and calibration offsets are saved to localStorage
+- **Click masking** — consumer-side gating that suppresses metronome clicks from the hit/onset/waveform paths via an `onClickScheduled` callback and the `useClickMask` hook (defaults: 220 ms mask, 40 ms lead guard, aligned to the measured AEC delay or the calibrated `audioLatencyMs`). Toggle via Configurations → "Mask metronome clicks from hit detection". Prevents speaker-bleed clicks from triggering false hits when feedback cancellation is off or underconverged.
+- **Persistent settings** — speed, responsiveness, root note, drone volume, debug mode, feedback cancellation, click-mask enabled, audio latency, and calibration offsets are saved to localStorage
 
 ## Quick Start
 

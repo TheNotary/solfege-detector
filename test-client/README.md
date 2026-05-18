@@ -11,7 +11,7 @@ The app uses React Router with four views:
 | `/` | MainMenu | Play Game, Calibrate Latency, Configurations |
 | `/play` | GameView | Rhythm game with sliding notes, crosshair, pitch detection |
 | `/calibrate` | CalibrateView | Audio + display latency calibration |
-| `/config` | ConfigView | Speed, responsiveness, root note, drone, debug settings |
+| `/config` | ConfigView | Speed, responsiveness, root note, drone, debug, feedback cancellation, click-mask toggle, and on-demand audio latency calibration (LatencyCalibrator) |
 
 Press **Esc** during gameplay to return to the main menu. Game settings are persisted to localStorage.
 
