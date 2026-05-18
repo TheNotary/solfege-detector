@@ -80,6 +80,14 @@ export interface CalibrateBulkDelayOptions {
   maxLagSamples?: number;
   /** Minimum confidence (peak / median |corr|) to accept. Default 5. */
   minConfidence?: number;
+  /**
+   * Minimum normalized peak correlation [0..1] to accept. Default 0. A real
+   * speaker→mic echo of the probe typically yields > 0.3; values below that
+   * usually mean the mic isn't hearing the probe (headphones, muted speakers,
+   * mic too far) and the recovered lag is fitting noise. Reject those so a
+   * previously-good calibration isn't overwritten with garbage.
+   */
+  minPeakCorrelation?: number;
   /** Timeout in ms before giving up on the capture round-trip. Default 1500. */
   timeoutMs?: number;
 }
@@ -501,6 +509,7 @@ export function useAudioStream(
       const windowSamples = Math.max(512, Math.floor(opts.windowSamples ?? 4096));
       const maxLagSamples = Math.max(64, Math.floor(opts.maxLagSamples ?? 4410));
       const minConfidence = opts.minConfidence ?? 5;
+      const minPeakCorrelation = opts.minPeakCorrelation ?? 0;
       const timeoutMs = opts.timeoutMs ?? 1500;
 
       const capture = await new Promise<{
@@ -565,7 +574,10 @@ export function useAudioStream(
         applied: false,
       };
 
-      if (measurement.confidence >= minConfidence) {
+      if (
+        measurement.confidence >= minConfidence &&
+        measurement.peakCorrelation >= minPeakCorrelation
+      ) {
         try {
           aecNode.port.postMessage({ type: "setLatency", ms: result.delayMs });
           result.applied = true;

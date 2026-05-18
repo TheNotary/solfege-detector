@@ -48,8 +48,16 @@ function emitCalibrationProbe(
   options: { freqHz?: number; volume?: number; offsetsSec?: number[] } = {},
 ): void {
   const freqHz = options.freqHz ?? 1500;
-  const volume = options.volume ?? 0.25;
-  const offsetsSec = options.offsetsSec ?? [0.05, 0.18];
+  // Louder than a normal click: we want the speaker echo to clear the
+  // mic noise floor (~ -45 dBFS on laptop mics) by a comfortable margin.
+  // -6 dBFS at source + ~30 dB acoustic loss → ~-36 dBFS at mic, ~10 dB
+  // above noise floor.
+  const volume = options.volume ?? 0.5;
+  // Four staggered clicks across the capture window so the cross-correlator
+  // gets multiple uncorrelated chances. 80 ms spacing keeps the autocorrelation
+  // unambiguous (echoes never overlap from one click to the next at typical
+  // speaker→mic distances).
+  const offsetsSec = options.offsetsSec ?? [0.04, 0.12, 0.20, 0.28];
   const t0 = ctx.currentTime;
   for (const offset of offsetsSec) {
     const when = t0 + offset;
@@ -297,6 +305,14 @@ export default function GameView(_props: GameViewProps) {
               `[AEC debug] reference channel is silent (refRms=${result.refRmsDb.toFixed(1)} dBFS). ` +
                 `Probe was scheduled but didn't show up — likely useReferenceMix isn't actually ` +
                 `connected to the AEC worklet, or the speaker output is muted.`,
+            );
+          } else if (!result.applied && result.peakCorrelation < 0.25) {
+            console.warn(
+              `[AEC debug] calibration rejected: peakCorrelation=${result.peakCorrelation.toFixed(3)} too weak. ` +
+                `The probe is reaching the AEC's reference channel but the mic doesn't ` +
+                `hear it. Common causes: wearing headphones, speakers muted/very quiet, ` +
+                `mic too far from speakers, or the OS is routing the probe somewhere ` +
+                `other than the speakers the mic can hear. Existing delay setting is kept.`,
             );
           }
         }
