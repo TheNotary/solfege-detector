@@ -2,12 +2,19 @@
 id: 133
 title: 'Improve AEC debug logs: dedupe per-frame, show top correlation peaks, detect anti-correlation'
 type: task
-status: in_progress
+status: closed
 priority: 2
 parent: 118
-claimed_by: witty-falcon
 assignees:
 - witty-falcon
 created_at: 2026-05-18T01:50:13.069934555Z
-updated_at: 2026-05-18T01:50:24.160954264Z
+updated_at: 2026-05-18T01:50:32.443390954Z
+closed_at: 2026-05-18T01:50:32.443390184Z
 ---
+
+---
+COMMENT
+2026-05-18T01:50:32.437814724Z
+author: witty-falcon
+
+Shipped. Re-run with 'Log AEC Cancelation Details' on; the new top-peak list will tell us whether the cross-correlation is finding ANYTHING meaningful, and the signed peak will reveal phase issues.
