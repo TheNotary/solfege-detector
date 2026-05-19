@@ -351,13 +351,22 @@ export function drawOnsetFlash(
         if (elapsed >= FLASH_DURATION_MS) continue;
         const opacity = 1 - elapsed / FLASH_DURATION_MS;
 
-        const gradient = ctx.createRadialGradient(cx, h / 2, 0, cx, h / 2, Math.max(radiusX, h * 0.5));
+        // Use an elliptical gradient that spans the full height by scaling
+        // the Y axis. The gradient is circular in transformed space, but
+        // stretches vertically to cover the entire canvas height.
+        const flashWidth = radiusX * 4;
+        const left = cx - flashWidth / 2;
+        ctx.save();
+        ctx.translate(cx, h / 2);
+        ctx.scale(1, h / flashWidth);
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, flashWidth / 2);
         gradient.addColorStop(0, `rgba(255, 200, 50, ${0.35 * opacity})`);
         gradient.addColorStop(0.4, `rgba(255, 140, 0, ${0.15 * opacity})`);
         gradient.addColorStop(0.7, `rgba(255, 140, 0, 0)`);
-
+        gradient.addColorStop(1, `rgba(255, 140, 0, 0)`);
         ctx.fillStyle = gradient;
-        ctx.fillRect(cx - radiusX * 2, 0, radiusX * 4, h);
+        ctx.fillRect(-flashWidth / 2, -flashWidth / 2, flashWidth, flashWidth);
+        ctx.restore();
     }
     ctx.restore();
 }
