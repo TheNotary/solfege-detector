@@ -26,9 +26,66 @@ interface WaveformCrosshairProps {
    */
   clickMask?: ClickMaskView | null;
   audioContext?: AudioContext | null;
+  /**
+   * Detected fundamental frequency in Hz, or null when silence/unclear.
+   * Used to phase-lock the redraw cadence to the pitch so the trace
+   * appears visually frozen while a steady note is held (see
+   * `pickPhaseLockSkip`).
+   */
+  pitchHz: number | null;
 }
 
 const CANVAS_WIDTH = 160;
+const MAX_WAVEFORM_FPS = 120;
+// Don't skip so many RAFs that the effective draw rate drops below this.
+// 10 fps is the floor where the trace still feels alive rather than
+// stuttered when the phase-lock search picks a large skip count.
+const MIN_WAVEFORM_FPS = 10;
+
+/**
+ * Pick how many `requestAnimationFrame` ticks to wait between draws so
+ * that the time-domain buffer is phase-aligned frame-to-frame and the
+ * waveform appears visually frozen.
+ *
+ * The browser only delivers RAF callbacks at the display refresh rate
+ * (typically 60 Hz, 90 Hz on some laptops, 120 Hz on high-refresh
+ * monitors), so we can only choose *which* ticks to draw on — we can't
+ * draw at an arbitrary target fps. For a given pitch period `T = 1/f`
+ * and inter-RAF interval `dt`, drawing every `k`-th RAF advances the
+ * wave by `k * dt / T` cycles. We pick the `k` that minimises the
+ * distance of that value to the nearest integer (i.e. lands closest to
+ * a whole-cycle boundary), within the [maxFps, minFps] band.
+ *
+ * Returning `1` is always a safe default (draw every RAF).
+ */
+export function pickPhaseLockSkip(
+  pitchHz: number | null,
+  rafDtMs: number,
+  maxFps: number = MAX_WAVEFORM_FPS,
+  minFps: number = MIN_WAVEFORM_FPS
+): number {
+  if (!Number.isFinite(rafDtMs) || rafDtMs <= 0) return 1;
+  // Lower bound on k from the maxFps cap: don't draw more often than
+  // maxFps even if RAF fires faster (e.g. 144 Hz monitor).
+  const kMin = Math.max(1, Math.ceil(1000 / maxFps / rafDtMs));
+  // Upper bound on k from the minFps floor.
+  const kMax = Math.max(kMin, Math.floor(1000 / minFps / rafDtMs));
+  if (pitchHz === null || !Number.isFinite(pitchHz) || pitchHz <= 0) {
+    return kMin;
+  }
+  const periodMs = 1000 / pitchHz;
+  let bestK = kMin;
+  let bestDist = Infinity;
+  for (let k = kMin; k <= kMax; k++) {
+    const cycles = (k * rafDtMs) / periodMs;
+    const dist = Math.abs(cycles - Math.round(cycles));
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestK = k;
+    }
+  }
+  return bestK;
+}
 /** Max horizontal displacement in CSS pixels (used by hit-zone logic). */
 export const WAVEFORM_MAX_AMPLITUDE_PX = CANVAS_WIDTH * 0.45;
 const CYAN = "rgba(0, 200, 255, 1)";
@@ -67,6 +124,7 @@ export default function WaveformCrosshair({
   isRecording,
   clickMask,
   audioContext,
+  pitchHz,
 }: WaveformCrosshairProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rafRef = useRef<number>(0);
@@ -79,6 +137,14 @@ export default function WaveformCrosshair({
   clickMaskRef.current = clickMask;
   const audioContextRef = useRef<AudioContext | null | undefined>(audioContext);
   audioContextRef.current = audioContext;
+  const pitchHzRef = useRef<number | null>(pitchHz);
+  pitchHzRef.current = pitchHz;
+  // Rolling EMA of inter-RAF dt (ms), used to pick the phase-lock skip.
+  // Seeded at 16.67 (60 Hz) and re-estimated each tick.
+  const rafDtEmaRef = useRef<number>(1000 / 60);
+  const lastRafTimeRef = useRef<number>(0);
+  // Counts RAF callbacks since mount; we draw when `count % skip === 0`.
+  const rafCountRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,6 +180,24 @@ export default function WaveformCrosshair({
     }
 
     const draw = () => {
+      // Phase-lock: measure RAF cadence and skip ticks so the redraw
+      // interval lands close to an integer number of waveform cycles.
+      const now = performance.now();
+      if (lastRafTimeRef.current > 0) {
+        const dt = now - lastRafTimeRef.current;
+        // Guard against tab-resume gaps and bogus huge deltas.
+        if (dt > 0 && dt < 100) {
+          rafDtEmaRef.current = 0.9 * rafDtEmaRef.current + 0.1 * dt;
+        }
+      }
+      lastRafTimeRef.current = now;
+      const skip = pickPhaseLockSkip(pitchHzRef.current, rafDtEmaRef.current);
+      const count = rafCountRef.current++;
+      if (count % skip !== 0) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
       const dpr = window.devicePixelRatio || 1;
       const w = CANVAS_WIDTH;
       const h = canvas.height / dpr;

@@ -817,6 +817,7 @@ export default function GameView(_props: GameViewProps) {
         isRecording={isRecording}
         clickMask={settings.clickMaskEnabled ? clickMask : null}
         audioContext={audioContext}
+        pitchHz={pitchHz}
       />
       <div
         className="crosshair-zone"
