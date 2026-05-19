@@ -525,7 +525,18 @@ export default function GameView(_props: GameViewProps) {
     ? analyserNode
     : (filteredAnalyserNode ?? analyserNode);
   const waveformDisplacement = useWaveformDisplacement(displayAnalyserNode, isRecording);
-  void waveformDisplacement; // used by WaveformCrosshair visually
+
+  // Blend the pitch-presence fade (`pitchOpacity`) with the live loudness
+  // signal so the pitch-bar is barely visible (~FLOOR) for a quietly held
+  // pitch and ramps toward full opacity as the singer gets louder. Without
+  // this, faint signals produced a fully-opaque bar that drew attention to
+  // noise floor jitter; with it, the bar's brightness mirrors what the
+  // player hears.
+  const PITCH_BAR_FLOOR = 0.25;
+  const PITCH_BAR_GAIN = 3;
+  const loudness = Math.min(1, waveformDisplacement * PITCH_BAR_GAIN);
+  const pitchBarOpacity =
+    pitchOpacity * (PITCH_BAR_FLOOR + (1 - PITCH_BAR_FLOOR) * loudness);
 
   // Hit-zone geometry (centerPct, halfPct, offsetPct).  Computed every
   // frame so the cyan visual crosshair-zone and the yellow debug zone
@@ -851,7 +862,7 @@ export default function GameView(_props: GameViewProps) {
       )}
 
       {/* Pitch indicator bar */}
-      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchOpacity} notePoints={notePoints} />
+      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchBarOpacity} notePoints={notePoints} x={CROSSHAIR_X} />
 
       {/* Onset flash indicator */}
       <OnsetFlash onsetCount={onsetCount} active={isRunning} />

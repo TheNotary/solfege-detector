@@ -1,6 +1,5 @@
 .pitch-bar {
   position: absolute;
-  left: 45px;
   width: 10px;
   height: 30px;
   border-radius: 5px;
@@ -9,22 +8,26 @@
     0 0 8px #ff4500,
     0 0 16px #ff8c00,
     0 0 24px #ffd700;
-  transform: translateY(-50%);
+  /* Centers the bar on its (left, top) anchor so the inline `left`/`top`
+   * styles (driven by CROSSHAIR_X and the detected pitch's Y%) align the
+   * bar with the waveform column and the staff row. */
+  transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 5;
+  /* Only the glow pulses — opacity is driven by the inline style (which
+   * encodes pitch-presence fade × loudness) and must not be overridden
+   * by the animation. */
   animation: pitch-bar-flicker 0.33s ease-in-out infinite alternate;
 }
 
 @keyframes pitch-bar-flicker {
   0% {
-    opacity: 0.85;
     box-shadow:
       0 0 6px #ff4500,
       0 0 12px #ff8c00,
       0 0 20px #ffd700;
   }
   100% {
-    opacity: 1;
     box-shadow:
       0 0 10px #ff4500,
       0 0 20px #ff8c00,

@@ -48,13 +48,17 @@ interface PitchBarProps {
   displayPitchHz: number | null;
   opacity: number;
   notePoints: NotePoint[];
+  /** Horizontal position in percent of the parent container's width.
+   *  The bar is centered on this column via a CSS translate(-50%, -50%),
+   *  so it visually sits inside the waveform/crosshair stack. */
+  x: number;
 }
 
 /**
  * Glowing fiery pitch indicator bar that shows detected pitch
  * position aligned to the staff note rows.
  */
-export default function PitchBar({ displayPitchHz, opacity, notePoints }: PitchBarProps) {
+export default function PitchBar({ displayPitchHz, opacity, notePoints, x }: PitchBarProps) {
   if (displayPitchHz === null || opacity <= 0.01) {
     return null;
   }
@@ -66,6 +70,7 @@ export default function PitchBar({ displayPitchHz, opacity, notePoints }: PitchB
     <div
       className="pitch-bar"
       style={{
+        left: `${x}%`,
         top: `${clampedTop}%`,
         opacity,
       }}
