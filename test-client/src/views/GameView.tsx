@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./GameView.css";
-import NoteSprite from "../components/NoteSprite";
-import PitchBar from "../components/PitchBar";
-import { freqToY, buildNotePoints } from "../components/PitchBar";
-import { useGameEngine, CROSSHAIR_X, HIT_ZONE_HALF, syllableY } from "../hooks/useGameEngine";
+import GameCanvas from "../components/GameCanvas";
+import { freqToY, buildNotePoints } from "../lib/canvasLayers";
+import type { OnsetMarker } from "../lib/canvasLayers";
+import { useGameEngine, CROSSHAIR_X } from "../hooks/useGameEngine";
 import { computeHitZoneGeometry } from "../lib/hitZoneGeometry";
 import { useWaveformDisplacement } from "../hooks/useWaveformDisplacement";
 import { useVolumeDetection } from "../hooks/useVolumeDetection";
@@ -18,13 +18,10 @@ import { useMetronome } from "../hooks/useMetronome";
 import { useReferenceMix } from "../hooks/useReferenceMix";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import { useClickMask } from "../hooks/useClickMask";
-import OnsetFlash from "../components/OnsetFlash";
-import WaveformCrosshair from "../components/WaveformCrosshair";
+import confetti from "canvas-confetti";
 import AppConfig from "../AppConfig";
 import { parseNoteName, foldToOctave, computeScaleFrequencies } from "../utils/noteUtils";
 import { useGameSettings } from "../hooks/useGameSettings";
-
-const SOLFEGE_LABELS = ["do", "re", "mi", "fa", "sol", "la", "ti"] as const;
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
 function hzToNoteName(hz: number): string {
@@ -122,9 +119,14 @@ export default function GameView(_props: GameViewProps) {
   clickMaskEnabledRef.current = settings.clickMaskEnabled;
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  const [onsetCount, setOnsetCount] = useState(0);
+  const [onsetMarkers, setOnsetMarkers] = useState<OnsetMarker[]>([]);
+  const onsetIdRef = useRef(0);
   const onOnset = useCallback(() => {
-    setOnsetCount((c) => c + 1);
+    const marker: OnsetMarker = { id: onsetIdRef.current++, createdAt: performance.now() };
+    setOnsetMarkers((prev) => [...prev, marker]);
+    setTimeout(() => {
+      setOnsetMarkers((prev) => prev.filter((m) => m.id !== marker.id));
+    }, 500);
   }, []);
   const { resetOnsets: resetOnsetsRaw, feedSamples, trimToNearestOnset } = useOnsetDetection({ onOnset });
 
@@ -348,7 +350,7 @@ export default function GameView(_props: GameViewProps) {
   // Wrap startNoteCapture to also reset onset detector
   const startNoteCapture = useCallback(() => {
     resetOnsetsRaw();
-    setOnsetCount(0);
+    setOnsetMarkers([]);
     startNoteCaptureRaw();
   }, [resetOnsetsRaw, startNoteCaptureRaw]);
 
@@ -672,6 +674,30 @@ export default function GameView(_props: GameViewProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isRunning, isDroning, stopGame, stopRecording, stopDrone, navigate, metronome, clickMask]);
 
+  // Confetti trigger: fire canvas-confetti when a note transitions to "hit"
+  const confettiFiredRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    for (const note of notes) {
+      if (note.state === "hit" && !confettiFiredRef.current.has(note.id)) {
+        confettiFiredRef.current.add(note.id);
+        const rect = container.getBoundingClientRect();
+        const x = (rect.left + (note.x / 100) * rect.width) / window.innerWidth;
+        const y = (rect.top + (note.y / 100) * rect.height) / window.innerHeight;
+        confetti({
+          particleCount: 60,
+          spread: 50,
+          origin: { x, y },
+          colors: ["#ff0", "#0ff", "#f0f", "#0f0", "#f90"],
+          startVelocity: 20,
+          gravity: 0.6,
+          ticks: 80,
+        });
+      }
+    }
+  }, [notes]);
+
   return (
     <div className="game-container" ref={containerRef}>
       {/* HUD */}
@@ -806,71 +832,22 @@ export default function GameView(_props: GameViewProps) {
         </div>
       </div>
 
-      {/* Staff lines and labels */}
-      {SOLFEGE_LABELS.map((s) => {
-        const y = syllableY(s);
-        return (
-          <div key={s}>
-            <div className="staff-line" style={{ top: `${y}%` }} />
-            <div className="staff-label" style={{ top: `${y}%` }}>
-              {s}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Crosshair.  Width is derived from the same helper that powers the
-          debug overlay so the cyan box and the yellow debug box are
-          geometrically identical by construction (see #109). */}
-      <WaveformCrosshair
+      {/* Unified game canvas — renders all visual layers */}
+      <GameCanvas
+        notes={notes}
         analyserNode={displayAnalyserNode}
-        x={CROSSHAIR_X}
+        pitchHz={pitchHz}
+        displayPitchHz={displayPitchHz}
+        pitchOpacity={pitchBarOpacity}
         isRecording={isRecording}
+        onsetMarkers={onsetMarkers}
+        hitZoneGeometry={hitZoneGeometry}
+        showHitzoneOffset={showHitzoneOffset}
         clickMask={settings.clickMaskEnabled ? clickMask : null}
         audioContext={audioContext}
-        pitchHz={pitchHz}
+        notePoints={notePoints}
+        crosshairX={CROSSHAIR_X}
       />
-      <div
-        className="crosshair-zone"
-        style={{
-          left: `${CROSSHAIR_X}%`,
-          width: hitZoneGeometry ? `${hitZoneGeometry.halfPct * 2}%` : "160px",
-          transform: "translateX(-50%)",
-        }}
-      />
-
-      {/* Debug: actual hit zone overlay */}
-      {showHitzoneOffset && debugHitZone && (
-        <div
-          className="debug-hit-zone"
-          style={{
-            left: `${debugHitZone.centerPct - debugHitZone.halfPct}%`,
-            width: `${debugHitZone.halfPct * 2}%`,
-          }}
-        >
-          {debugHitZone.offsetPct > 0 && (
-            <div
-              className="debug-latency-offset"
-              style={{
-                left: "0%",
-                width: `${Math.min(1, debugHitZone.offsetPct / (debugHitZone.halfPct * 2)) * 100}%`,
-              }}
-            />
-          )}
-          <div className="debug-hit-zone-center" style={{ left: "50%" }} />
-        </div>
-      )}
-
-      {/* Pitch indicator bar */}
-      <PitchBar displayPitchHz={displayPitchHz} opacity={pitchBarOpacity} notePoints={notePoints} x={CROSSHAIR_X} />
-
-      {/* Onset flash indicator */}
-      <OnsetFlash onsetCount={onsetCount} active={isRunning} />
-
-      {/* Notes */}
-      {notes.map((note) => (
-        <NoteSprite key={note.id} note={note} containerRef={containerRef} />
-      ))}
 
       {/* Debug HUD */}
       {showDebug && (
