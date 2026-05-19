@@ -105,6 +105,8 @@ export default function GameView(_props: GameViewProps) {
   // click's play time, which the user will see as a too-narrow dip.
   const audioLatencyMsRef = useRef(settings.audioLatencyMs);
   audioLatencyMsRef.current = settings.audioLatencyMs;
+  const displayLatencyMsRef = useRef(settings.displayLatencyMs);
+  displayLatencyMsRef.current = settings.displayLatencyMs;
   const aecDelayMsRef = useRef(0);
   const clickMask = useClickMask({
     getDelayMs: () => {
@@ -350,6 +352,23 @@ export default function GameView(_props: GameViewProps) {
     startNoteCaptureRaw();
   }, [resetOnsetsRaw, startNoteCaptureRaw]);
 
+  // Forward-declared scheduler invoked by the game engine on each note
+  // spawn to play a click exactly when that note's centre reaches the
+  // visual crosshair. Populated by an effect below once `metronome`,
+  // `audioContext`, and `clickMask` all exist; the callback safely no-ops
+  // until then. We can't reference `metronome.scheduleClickAt` directly
+  // here because `useMetronome` is constructed further down the file
+  // (it needs the AudioContext produced by `useAudioStream`).
+  const scheduleNoteClickRef = useRef<
+    ((etaToCrosshairSec: number) => void) | null
+  >(null);
+  const onNoteSpawn = useCallback(
+    (info: { noteId: number; syllable: string; etaToCrosshairSec: number }) => {
+      scheduleNoteClickRef.current?.(info.etaToCrosshairSec);
+    },
+    [],
+  );
+
   const {
     notes,
     speed,
@@ -365,6 +384,7 @@ export default function GameView(_props: GameViewProps) {
     targetFrequencies: scaleFrequencies,
     initialSpeed: settings.speed,
     latencyOffsetMs: settings.audioLatencyMs + settings.displayLatencyMs,
+    onNoteSpawn,
   });
 
   const { isQualitySample } = useAudioQuality(analyserNode);
@@ -432,6 +452,63 @@ export default function GameView(_props: GameViewProps) {
   bpmRef.current = speed;
   const metronomeOffsetMsRef = useRef(metronomeOffsetMs);
   metronomeOffsetMsRef.current = metronomeOffsetMs;
+  const metronomeEnabledRef = useRef(metronomeEnabled);
+  metronomeEnabledRef.current = metronomeEnabled;
+
+  // Hook the engine's `onNoteSpawn` to `metronome.scheduleClickAt` so a
+  // click fires at exactly the audio-time when the note's centre reaches
+  // the visual crosshair — *as the user perceives it*.
+  //
+  // Click-scheduling equation (all terms in seconds):
+  //
+  //     t_click  =  t_now                       // AudioContext "now"
+  //               + eta_to_crosshair            // visual ETA from spawn
+  //               + offset_user                 // tunable nudge slider
+  //               - latency_audio_in            // pull-forward to cancel
+  //                                             //   output-buffer delay
+  //                                             //   (proxied by the
+  //                                             //   calibrated input
+  //                                             //   latency — see note)
+  //               + latency_display             // push-back so the sound
+  //                                             //   lands when the photon
+  //                                             //   actually reaches the
+  //                                             //   user's eye
+  //
+  // Why subtract input latency and add display latency:
+  //   - `latency_audio_in` is calibrated mic-input latency. On commodity
+  //     hardware the audio-output buffer depth tracks the input buffer
+  //     depth closely, so we use it as a best-available proxy for output
+  //     pipeline delay. Subtracting pulls the click earlier so the speaker
+  //     fires at the intended instant rather than a buffer-delay later.
+  //   - `latency_display` is the screen+compositor delay between
+  //     `requestAnimationFrame` returning and the photon reaching the
+  //     user's eye. Positive values mean the user sees the note arrive at
+  //     the crosshair *after* our internal clock thinks it did, so we add
+  //     it to delay the click in lockstep.
+  useEffect(() => {
+    scheduleNoteClickRef.current = (etaToCrosshairSec: number) => {
+      if (!metronomeEnabledRef.current) return;
+      const ctx = audioContextRef.current;
+      if (!ctx) return;
+      const tNow = ctx.currentTime;
+      const offsetUserSec = metronomeOffsetMsRef.current / 1000;
+      const latencyAudioInSec = audioLatencyMsRef.current / 1000;
+      const latencyDisplaySec = displayLatencyMsRef.current / 1000;
+      
+      const tClick =
+        tNow
+        + etaToCrosshairSec
+        + offsetUserSec
+        - latencyAudioInSec
+        - 0.1 // offset that makes players precieve good calibration
+        + latencyDisplaySec;
+
+      metronome.scheduleClickAt(tClick, false);
+    };
+    return () => {
+      scheduleNoteClickRef.current = null;
+    };
+  }, [metronome]);
 
   // Keep volume in sync.
   useEffect(() => {
@@ -536,6 +613,7 @@ export default function GameView(_props: GameViewProps) {
       startRecording();
       if (metronomeEnabled) {
         metronome.start({
+          externalClock: true,
           getBpm: () => bpmRef.current,
           getOffsetSec: () => metronomeOffsetMsRef.current / 1000,
           onClickScheduled: (audioTime) => {
@@ -551,6 +629,7 @@ export default function GameView(_props: GameViewProps) {
     if (!isRunning) return;
     if (metronomeEnabled && !metronome.isRunning()) {
       metronome.start({
+        externalClock: true,
         getBpm: () => bpmRef.current,
         getOffsetSec: () => metronomeOffsetMsRef.current / 1000,
         onClickScheduled: (audioTime) => {

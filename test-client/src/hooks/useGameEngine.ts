@@ -60,6 +60,17 @@ export interface UseGameEngineOptions {
    *  center so notes are evaluated for hits earlier, compensating for
    *  system + player latency. Negative values shift the other way. */
   latencyOffsetMs?: number;
+  /**
+   * Called once per spawned note with the predicted time — in seconds
+   * from now — until the note's centre reaches the visual crosshair
+   * (`CROSSHAIR_X`). Used by GameView to schedule a metronome click that
+   * sounds exactly when the note is over the waveform.
+   */
+  onNoteSpawn?: (info: {
+    noteId: number;
+    syllable: Syllable;
+    etaToCrosshairSec: number;
+  }) => void;
 }
 
 export interface UseGameEngineReturn {
@@ -109,6 +120,8 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
   stopNoteCaptureRef.current = options?.stopNoteCapture;
   const targetFreqRef = useRef(options?.targetFrequencies ?? TARGET_FREQUENCIES);
   targetFreqRef.current = options?.targetFrequencies ?? TARGET_FREQUENCIES;
+  const onNoteSpawnRef = useRef(options?.onNoteSpawn);
+  onNoteSpawnRef.current = options?.onNoteSpawn;
 
   const setSpeed = useCallback((s: number) => {
     const clamped = Math.max(MIN_SPEED, Math.min(MAX_SPEED, s));
@@ -217,6 +230,22 @@ export function useGameEngine(options?: UseGameEngineOptions): UseGameEngineRetu
         };
         notesRef.current.push(note);
         lastSpawnRef.current = timestamp;
+
+        // Notify listeners (e.g. the metronome scheduler in GameView) of the
+        // predicted time until this note's centre reaches the visual
+        // crosshair. Notes start at x=105 and travel left at `pxPerSec`, so
+        // ETA = (105 - CROSSHAIR_X) / pxPerSec. We deliberately anchor on
+        // the visual `CROSSHAIR_X` rather than the latency-shifted
+        // `effectiveCenter` so the audible click lines up with where the
+        // player SEES the note land.
+        if (onNoteSpawnRef.current) {
+          const etaToCrosshairSec = (105 - CROSSHAIR_X) / pxPerSec;
+          onNoteSpawnRef.current({
+            noteId: note.id,
+            syllable,
+            etaToCrosshairSec,
+          });
+        }
       }
 
       // Move notes

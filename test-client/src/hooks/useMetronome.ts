@@ -15,8 +15,23 @@ export interface MetronomeStartOptions {
    * timing before the speakers fire. Re-read every beat alongside `getBpm`
    * / `getOffsetSec`, so swapping callbacks via a fresh `start({…})` is not
    * required for the new value to take effect on the next scheduled beat.
+   *
+   * Also fires from `scheduleClickAt` when in external-clock mode, so
+   * click-mask wiring continues to work regardless of which scheduling
+   * model is active.
    */
   onClickScheduled?: (audioTime: number, accent: boolean) => void;
+  /**
+   * When true, the internal lookahead scheduler is NOT started. The caller
+   * is expected to drive clicks themselves via `scheduleClickAt(audioTime)`.
+   * Use this when beats must align to an external timeline (e.g. notes
+   * arriving at the visual crosshair in the game loop) rather than a
+   * free-running BPM clock.
+   *
+   * `getBpm`/`getOffsetSec` are still accepted for API symmetry but are
+   * unused in this mode.
+   */
+  externalClock?: boolean;
 }
 
 export interface UseMetronomeReturn {
@@ -24,6 +39,19 @@ export interface UseMetronomeReturn {
   stop: () => void;
   setVolume: (v: number) => void;
   isRunning: () => boolean;
+  /**
+   * Fire a single click at the given `AudioContext.currentTime`-domain
+   * timestamp. Silently dropped if the metronome is not running, no audio
+   * context is available, or the requested time has already passed.
+   *
+   * Note on BPM changes: clicks scheduled by this method are committed to
+   * the audio graph at call time. If the caller (e.g. the game engine)
+   * changes its BPM mid-game, already-scheduled clicks fire at their
+   * originally-computed times — only subsequently scheduled clicks pick
+   * up the new spacing. This matches the game's note behaviour: notes
+   * already in flight keep their original speed.
+   */
+  scheduleClickAt: (audioTime: number, accent?: boolean) => void;
 }
 
 const LOOKAHEAD_MS = 200;
@@ -184,12 +212,30 @@ export function useMetronome(
       beatIndexRef.current = 0;
       runningRef.current = true;
 
+      // External-clock mode: skip the lookahead loop entirely. The caller
+      // drives clicks via `scheduleClickAt`. We still flip `runningRef` so
+      // `stop()` cleanup and `scheduleClickAt`'s running-check both work.
+      if (opts.externalClock) {
+        return;
+      }
+
       // Schedule first batch immediately so beats start on time even before
       // the first interval tick fires.
       tick();
       intervalRef.current = setInterval(tick, LOOKAHEAD_MS);
     },
     [audioContext, stop, tick],
+  );
+
+  const scheduleClickAt = useCallback(
+    (audioTime: number, accent: boolean = false) => {
+      const ctx = audioContext;
+      if (!ctx || !runningRef.current) return;
+      if (audioTime < ctx.currentTime) return;
+      scheduleBeat(audioTime, accent);
+      optsRef.current?.onClickScheduled?.(audioTime, accent);
+    },
+    [audioContext, scheduleBeat],
   );
 
   const setVolume = useCallback((v: number) => {
@@ -204,5 +250,5 @@ export function useMetronome(
     };
   }, [stop]);
 
-  return { start, stop, setVolume, isRunning };
+  return { start, stop, setVolume, isRunning, scheduleClickAt };
 }
