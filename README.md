@@ -1,5 +1,7 @@
 # Solfege Detector
 
+[**Try the frontend →**](https://thenotary.github.io/solfege-detector/)
+
 Real-time solfege syllable detection using Microsoft CLAP zero-shot audio classification.
 
 Detects when standard solfege syllables (**do, re, mi, fa, sol, la, ti**) are spoken or sung in an audio stream, and reports the detected syllable with its confidence level.
