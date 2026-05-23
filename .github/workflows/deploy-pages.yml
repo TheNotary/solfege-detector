@@ -36,18 +36,10 @@ jobs:
         working-directory: test-client
         run: pnpm install --frozen-lockfile
 
-      - name: Create .env.build
-        working-directory: .
-        run: |
-          cat > .env.build << 'EOF'
-          export VITE_APP_TEST_CLIENT_APP_ENV=prod
-          export VITE_APP_TEST_CLIENT_BUILD_VERSION=${{ github.sha }}
-          export VITE_APP_TEST_CLIENT_SOCKET_URL=
-          export VITE_APP_TEST_CLIENT_BACKEND_URL=
-          EOF
-
       - name: Build
         working-directory: test-client
+        env:
+          VITE_APP_TEST_CLIENT_BUILD_VERSION: ${{ github.sha }}
         run: pnpm build
 
       - uses: actions/upload-pages-artifact@v3

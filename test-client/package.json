@@ -6,7 +6,7 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
-    "build": "source ../.env.build && vite build",
+    "build": "vite build",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
