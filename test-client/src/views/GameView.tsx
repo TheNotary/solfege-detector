@@ -18,6 +18,7 @@ import { useMetronome } from "../hooks/useMetronome";
 import { useReferenceMix } from "../hooks/useReferenceMix";
 import { useOnsetDetection } from "../hooks/useOnsetDetection";
 import { useClickMask } from "../hooks/useClickMask";
+import { useHitSound } from "../hooks/useHitSound";
 import confetti from "canvas-confetti";
 import AppConfig from "../AppConfig";
 import { parseNoteName, foldToOctave, computeScaleFrequencies } from "../utils/noteUtils";
@@ -443,6 +444,9 @@ export default function GameView(_props: GameViewProps) {
   );
   const [droneVolume, setDroneVolumeState] = useState(() => settings.droneVolume);
 
+  // Hit sound — playful pitch-bent pop when a note is hit
+  const { playHitSound } = useHitSound(audioContext, referenceMix);
+
   // Metronome — clicks aligned to the game's beat clock so the player knows
   // exactly when each sliding note will hit the crosshair.
   const metronome = useMetronome(audioContext, referenceMix);
@@ -694,9 +698,10 @@ export default function GameView(_props: GameViewProps) {
           gravity: 0.6,
           ticks: 80,
         });
+        playHitSound(scaleFrequencies[note.syllable]);
       }
     }
-  }, [notes]);
+  }, [notes, playHitSound, scaleFrequencies]);
 
   return (
     <div className="game-container" ref={containerRef}>
