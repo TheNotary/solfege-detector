@@ -96,10 +96,97 @@ export function useHitSound(
       lfo.start(now);
       lfo.stop(now + dur);
 
-      // Cleanup: disconnect after sound finishes to free resources
+      // --- Reverb send: deep hall to smooth the chimes ---
+      // Procedurally-generated impulse response: 2.5s exponential decay
+      // with high-frequency rolloff for a warm, diffuse hall sound.
+      const reverbDur = 2.5;
+      const reverbLen = Math.ceil(audioContext.sampleRate * reverbDur);
+      const irBuffer = audioContext.createBuffer(2, reverbLen, audioContext.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const data = irBuffer.getChannelData(ch);
+        for (let s = 0; s < reverbLen; s++) {
+          // Exponential decay with slight randomness for diffusion
+          const t = s / audioContext.sampleRate;
+          data[s] = (Math.random() * 2 - 1) * Math.exp(-t * 2.8);
+        }
+      }
+      const convolver = audioContext.createConvolver();
+      convolver.buffer = irBuffer;
+      // High-cut on reverb tail for warmth (remove harshness)
+      const reverbLP = audioContext.createBiquadFilter();
+      reverbLP.type = "lowpass";
+      reverbLP.frequency.value = 2500;
+      reverbLP.Q.value = 0.7;
+      // Reverb send gain (wet level)
+      const reverbSend = audioContext.createGain();
+      reverbSend.gain.value = 0.55;
+
+      convolver.connect(reverbLP);
+      reverbLP.connect(reverbSend);
+      reverbSend.connect(masterGain);
+
+      // --- Wind-chime layer: sparkling raindrop cascade (1000ms) ---
+      // Softer, rounder chimes routed through both dry and reverb paths.
+      // Reduced upper partials and gentler attacks for less metallic edge.
+      const chimeRatios = [
+        1.00, 1.41, 1.73, 2.17, 2.57, 3.14, 3.71,
+        4.13, 4.89, 5.19,
+        1.19, 2.83, 3.41, 4.59, 5.47,
+        1.58, 2.37, 3.93, 5.71,
+        1.32, 2.05, 2.73, 3.58, 4.41,
+      ];
+      // Fisher-Yates shuffle for random pitch ordering each hit
+      for (let i = chimeRatios.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [chimeRatios[i], chimeRatios[j]] = [chimeRatios[j], chimeRatios[i]];
+      }
+      const chimeCount = chimeRatios.length;
+      const chimeTotalDur = 1.0; // total chime duration in seconds
+      const chimeFadeStart = 0.75; // start fading at 750ms
+      for (let i = 0; i < chimeCount; i++) {
+        const chimeOsc = audioContext.createOscillator();
+        chimeOsc.type = "sine";
+        const chimeFreq = freq * chimeRatios[i];
+        // Random detune ±20 cents for organic shimmer
+        chimeOsc.detune.value = (Math.random() - 0.5) * 40;
+        // Stagger onsets: scatter across 0–750ms window
+        const onset = now + (i / chimeCount) * chimeFadeStart + Math.random() * 0.04;
+        chimeOsc.frequency.setValueAtTime(chimeFreq, onset);
+
+        const chimeEnv = audioContext.createGain();
+        // Each chime rings until the total duration, fading from its onset
+        const ringEnd = now + chimeTotalDur + Math.random() * 0.05;
+        // Gain: scaled back, with softer attack for less harsh ping
+        const fadeMultiplier = onset < now + chimeFadeStart
+          ? 1.0
+          : 1.0 - ((onset - (now + chimeFadeStart)) / (chimeTotalDur - chimeFadeStart));
+        const peakGain = (0.25 + Math.random() * 0.15) * volumeRef.current * Math.max(0.2, fadeMultiplier);
+        chimeEnv.gain.setValueAtTime(0, onset);
+        // Softer attack (~8ms) instead of instant ping — rounder sound
+        chimeEnv.gain.linearRampToValueAtTime(peakGain, onset + 0.008);
+        // Hold then fade: sustain until 750ms mark, then decay to silence
+        const sustainEnd = Math.max(onset + 0.015, now + chimeFadeStart);
+        if (sustainEnd > onset + 0.01) {
+          chimeEnv.gain.setValueAtTime(peakGain, sustainEnd);
+        }
+        chimeEnv.gain.exponentialRampToValueAtTime(0.001, ringEnd);
+
+        chimeOsc.connect(chimeEnv);
+        // Dry path (direct)
+        chimeEnv.connect(masterGain);
+        // Wet path (reverb)
+        chimeEnv.connect(convolver);
+        chimeOsc.start(onset);
+        chimeOsc.stop(ringEnd);
+      }
+
+      // Cleanup: disconnect after reverb tail finishes
       setTimeout(() => {
         try { masterGain.disconnect(); } catch { /* already disconnected */ }
-      }, 650);
+        try { convolver.disconnect(); } catch { /* already disconnected */ }
+        try { reverbLP.disconnect(); } catch { /* already disconnected */ }
+        try { reverbSend.disconnect(); } catch { /* already disconnected */ }
+      }, 3600);
     },
     [audioContext],
   );
