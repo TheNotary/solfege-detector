@@ -405,10 +405,10 @@ export default function GameView(_props: GameViewProps) {
     rootFrequencyHz,
   );
 
-  // Debug HUD toggle
-  const [showDebug, setShowDebug] = useState(() => settings.showDebug);
+  // Debug HUD toggle — reads directly from persisted settings
+  const showDebug = settings.showDebug;
   // Hitzone offset overlay toggle (independent of the general debug HUD)
-  const [showHitzoneOffset, setShowHitzoneOffset] = useState(() => settings.showHitzoneOffset);
+  const showHitzoneOffset = settings.showHitzoneOffset;
 
   // 100ms sliding-window pitch average
   const pitchBufferRef = useRef<Array<{ hz: number; t: number }>>([]);
@@ -548,10 +548,7 @@ export default function GameView(_props: GameViewProps) {
   // frame so the cyan visual crosshair-zone and the yellow debug zone
   // share the same source of truth — see #109.
   const [hitZoneGeometry, setHitZoneGeometry] = useState<{ centerPct: number; halfPct: number; offsetPct: number } | null>(null);
-  // The debug overlay is only shown while the game is running and the
-  // user has enabled the toggle.
-  const debugHitZone = isRunning && isRecording ? hitZoneGeometry : null;
-
+  
   // Check for hits every frame when running.
   useEffect(() => {
     const containerWidth = containerRef.current?.clientWidth ?? 1;
@@ -815,7 +812,7 @@ export default function GameView(_props: GameViewProps) {
             <input
               type="checkbox"
               checked={showDebug}
-              onChange={(e) => setShowDebug(e.target.checked)}
+              onChange={(e) => updateSetting("showDebug", e.target.checked)}
             />
             Debug
           </label>
@@ -823,7 +820,7 @@ export default function GameView(_props: GameViewProps) {
             <input
               type="checkbox"
               checked={showHitzoneOffset}
-              onChange={(e) => setShowHitzoneOffset(e.target.checked)}
+              onChange={(e) => updateSetting("showHitzoneOffset", e.target.checked)}
             />
             Hitzone
           </label>

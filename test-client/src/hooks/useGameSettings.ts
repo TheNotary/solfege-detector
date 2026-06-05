@@ -53,7 +53,7 @@ const DEFAULTS: GameSettings = {
   rootNote: "E3",
   droneVolume: 0.15,
   showDebug: true,
-  showHitzoneOffset: true,
+  showHitzoneOffset: false,
   audioLatencyMs: 0,
   displayLatencyMs: 0,
   metronomeEnabled: true,

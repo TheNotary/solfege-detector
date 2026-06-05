@@ -4,15 +4,29 @@ import { useGameSettings, type GameSettings } from "../hooks/useGameSettings";
 import LatencyCalibrator from "../components/LatencyCalibrator";
 import "./ConfigView.css";
 
+// Debug keys that persist immediately on change (no Save required)
+const DEBUG_KEYS: Set<keyof GameSettings> = new Set([
+  "showDebug",
+  "showHitzoneOffset",
+  "feedbackCancellation",
+  "vocalBandpassEnabled",
+  "clickMaskEnabled",
+  "logAecDetails",
+]);
+
 export default function ConfigView() {
   const navigate = useNavigate();
-  const { settings, updateSettings } = useGameSettings();
+  const { settings, updateSetting, updateSettings } = useGameSettings();
 
   // Local draft state — not persisted until Save
   const [draft, setDraft] = useState<GameSettings>({ ...settings });
 
-  const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) =>
+  const set = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
+    if (DEBUG_KEYS.has(key)) {
+      updateSetting(key, value);
+    }
+  };
 
   const handleSave = () => {
     updateSettings(draft);
